@@ -101,9 +101,16 @@ class SynchronizationApplication {
   //
   void OnXYZijAvailable(const TangoXYZij* xyz_ij);
 
+  // Callback for color frames that come in from the Tango service.
+  //
+  // @param buffer The image buffer returned by the service.
+  //
+  void OnColorFrameAvailable(const TangoImageBuffer* buffer);
+
  private:
   // RGB image
   ColorImage* color_image_;
+  GLubyte tmp[1280*720*3];
 
   // Depth image created by projecting Point Cloud onto RGB image plane.
   DepthImage* depth_image_;
