@@ -47,6 +47,7 @@ public class JNIInterface {
     public static native void setViewPort(int width, int height);
 
     public static native void render();
+    public static native void writeCurrentData();
 
     public static native void setDepthAlphaValue(float alpha);
 }

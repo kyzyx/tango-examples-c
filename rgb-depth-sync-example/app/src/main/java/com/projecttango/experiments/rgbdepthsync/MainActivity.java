@@ -65,6 +65,9 @@ public class MainActivity extends Activity {
 
     private static final String TAG = "RGBDepthSync";
 
+    private Thread mWriterThread;
+    private boolean done;
+
     private class DepthOverlaySeekbarListner implements SeekBar.OnSeekBarChangeListener {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress,
@@ -156,6 +159,7 @@ public class MainActivity extends Activity {
         super.onPause();
         mGLView.onPause();
         if (mIsConnectedService) {
+            done = true;
             JNIInterface.tangoDisconnect();
         }
         JNIInterface.freeGLContent();
@@ -199,6 +203,15 @@ public class MainActivity extends Activity {
         }
 
         mIsConnectedService = true;
+        mWriterThread = new Thread(new Runnable() {
+            public void run() {
+                while(!done) {
+                    JNIInterface.writeCurrentData();
+                }
+            }
+        });
+        done = false;
+        mWriterThread.start();
     }
 
     @Override

@@ -198,7 +198,6 @@ bool nv21_to_rgba(unsigned char* rgba, unsigned char alpha, unsigned char const*
 
 void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* buffer) {
     // Update texture
-    static int called = 0;
 
     GLuint tex = color_image_->GetTextureId();
     int w = buffer->width;
@@ -209,16 +208,11 @@ void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* b
     else if (buffer->format == TANGO_HAL_PIXEL_FORMAT_YCrCb_420_SP) fmt = 2;
     //LOGE("%d x %d with format %d, size %d\n", w, h, fmt, buffer->stride);
     // Save images
-    if (datadump != NULL && called > 1) {
-        nv21_to_rgb(tmp, buffer->data, w, h);
-        // First scanline is metadata, so just copy second line
-        memcpy(tmp, tmp+w*3, w*3);
-        fwrite(&called, sizeof(int), 1, datadump);
-        fwrite(&w, sizeof(int), 1, datadump);
-        fwrite(&h, sizeof(int), 1, datadump);
-        fwrite(tmp, 3, w*h, datadump);
+    if (datadump != NULL) {
+        std::lock_guard<std::mutex> lock(data_mutex_);
+        memcpy(yuv, buffer->data, w*h*3/2);
+        timestamp = buffer->timestamp;
     }
-    called++;
 }
 
 SynchronizationApplication::SynchronizationApplication() {
@@ -396,8 +390,8 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
 }
 
 void SynchronizationApplication::TangoDisconnect() {
-    int tmp = -1;
-    fwrite(&tmp, sizeof(int), 1, datadump);
+    double tmp = -1;
+    fwrite(&tmp, sizeof(double), 1, datadump);
     fclose(datadump);
   TangoConfig_free(tango_config_);
   tango_config_ = nullptr;
@@ -414,6 +408,23 @@ void SynchronizationApplication::SetViewPort(int width, int height) {
   screen_width_ = static_cast<float>(width);
   screen_height_ = static_cast<float>(height);
   main_scene_->SetupViewPort(width, height);
+}
+
+void SynchronizationApplication::writeCurrentData() {
+    int w = 1280;
+    int h = 720;
+    {
+        std::lock_guard<std::mutex> lock(data_mutex_);
+        memcpy(tmp, yuv, w*h*3/2);
+    }
+    nv21_to_rgb(buf, tmp, w, h);
+    // First scanline is metadata, so just copy second line
+    memcpy(buf, buf+w*3, w*3);
+
+    fwrite(&timestamp, sizeof(double), 1, datadump);
+    fwrite(&w, sizeof(int), 1, datadump);
+    fwrite(&h, sizeof(int), 1, datadump);
+    fwrite(buf, 3, w*h, datadump);
 }
 
 void SynchronizationApplication::Render() {

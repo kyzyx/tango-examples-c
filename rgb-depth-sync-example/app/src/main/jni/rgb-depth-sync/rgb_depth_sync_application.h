@@ -89,6 +89,8 @@ class SynchronizationApplication {
   // Main Render loop.
   void Render();
 
+  void writeCurrentData();
+
   // Release all OpenGL resources that are allocated in this app.
   void FreeGLContent();
 
@@ -110,8 +112,13 @@ class SynchronizationApplication {
  private:
   // RGB image
   ColorImage* color_image_;
-  GLubyte tmp[1280*720*3];
+  GLubyte yuv[1280*720*3/2];
+  GLubyte tmp[1280*720*3/2];
+  GLubyte buf[1280*720*3];
+  double timestamp;
   FILE* datadump;
+
+  std::mutex data_mutex_;
 
   // Depth image created by projecting Point Cloud onto RGB image plane.
   DepthImage* depth_image_;

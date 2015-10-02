@@ -86,6 +86,12 @@ Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_render(JNIEnv*,
 }
 
 JNIEXPORT void JNICALL
+Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_writeCurrentData(JNIEnv*,
+                                                                   jobject) {
+  app.writeCurrentData();
+}
+
+JNIEXPORT void JNICALL
 Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_freeGLContent(
     JNIEnv*, jobject) {
   app.FreeGLContent();
