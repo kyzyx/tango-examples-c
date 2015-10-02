@@ -111,6 +111,7 @@ class SynchronizationApplication {
   // RGB image
   ColorImage* color_image_;
   GLubyte tmp[1280*720*3];
+  FILE* datadump;
 
   // Depth image created by projecting Point Cloud onto RGB image plane.
   DepthImage* depth_image_;

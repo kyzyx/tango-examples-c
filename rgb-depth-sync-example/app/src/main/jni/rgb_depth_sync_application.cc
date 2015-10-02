@@ -199,6 +199,7 @@ bool nv21_to_rgba(unsigned char* rgba, unsigned char alpha, unsigned char const*
 void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* buffer) {
     // Update texture
     static int called = 0;
+
     GLuint tex = color_image_->GetTextureId();
     int w = buffer->width;
     int h = buffer->height;
@@ -208,22 +209,14 @@ void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* b
     else if (buffer->format == TANGO_HAL_PIXEL_FORMAT_YCrCb_420_SP) fmt = 2;
     //LOGE("%d x %d with format %d, size %d\n", w, h, fmt, buffer->stride);
     // Save images
-    if (called > 1) {
-        //toRGB(tmp, buffer->data, w, h);
+    if (datadump != NULL && called > 1) {
         nv21_to_rgb(tmp, buffer->data, w, h);
         // First scanline is metadata, so just copy second line
         memcpy(tmp, tmp+w*3, w*3);
-        char filename[64];
-        sprintf(filename, "/sdcard/DataDump/image%04d.bin", called);
-        FILE* f = fopen(filename, "w");
-        if (f != NULL) {
-            fprintf(f, "ImageData\nwidth %d\nheight %d\nformat RGB\nend_header\n", w, h);
-            fwrite(tmp, 3, w*h, f);
-            LOGE("Wrote file %s", filename);
-            fclose(f);
-        } else {
-            LOGE("Error writing file %s", filename);
-        }
+        fwrite(&called, sizeof(int), 1, datadump);
+        fwrite(&w, sizeof(int), 1, datadump);
+        fwrite(&h, sizeof(int), 1, datadump);
+        fwrite(tmp, 3, w*h, datadump);
     }
     called++;
 }
@@ -282,6 +275,7 @@ int SynchronizationApplication::TangoConnectTexture() {
   // images from the service because it avoids copies. You get access to the
   // graphic buffer directly. As we're interested in rendering the color image
   // in our render loop, we'll be polling for the color image as needed.
+    datadump = fopen("/sdcard/datadump.bin", "w");
   return TangoService_connectOnFrameAvailable(
       TANGO_CAMERA_COLOR, this, OnColorFrameAvailableRouter);
   //return TangoService_connectTextureId(
@@ -402,6 +396,9 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
 }
 
 void SynchronizationApplication::TangoDisconnect() {
+    int tmp = -1;
+    fwrite(&tmp, sizeof(int), 1, datadump);
+    fclose(datadump);
   TangoConfig_free(tango_config_);
   tango_config_ = nullptr;
   TangoService_disconnect();
