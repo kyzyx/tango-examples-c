@@ -417,14 +417,10 @@ void SynchronizationApplication::writeCurrentData() {
         std::lock_guard<std::mutex> lock(data_mutex_);
         memcpy(tmp, yuv, w*h*3/2);
     }
-    nv21_to_rgb(buf, tmp, w, h);
-    // First scanline is metadata, so just copy second line
-    memcpy(buf, buf+w*3, w*3);
-
     fwrite(&timestamp, sizeof(double), 1, datadump);
     fwrite(&w, sizeof(int), 1, datadump);
     fwrite(&h, sizeof(int), 1, datadump);
-    fwrite(buf, 3, w*h, datadump);
+    fwrite(tmp, 1, w*h*3/2, datadump);
 }
 
 void SynchronizationApplication::Render() {
