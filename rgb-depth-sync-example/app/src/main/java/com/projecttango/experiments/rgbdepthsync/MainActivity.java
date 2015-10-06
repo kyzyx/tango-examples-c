@@ -25,6 +25,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Point;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
@@ -72,9 +73,9 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     private static final String TAG = "RGBDepthSync";
 
     private Thread mWriterThread;
-    private boolean done;
 
     private boolean capturing;
+    private String savefilename;
 
     private class DepthOverlaySeekbarListner implements SeekBar.OnSeekBarChangeListener {
         @Override
@@ -110,9 +111,18 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     // FilenameSelectDialogListener methods
     public void onPositiveClick(String s) {
         mStartCaptureButton.setText("Stop Capture");
-        Log.d(TAG, "onPositiveClick save file " + s);
-        //JNIInterface.startCapture(s);
+        savefilename = s;
+        //Log.d(TAG, "onPositiveClick save file " + s);
+        JNIInterface.startCapture(s);
         capturing = true;
+        mWriterThread = new Thread(new Runnable() {
+            public void run() {
+                while(capturing) {
+                    JNIInterface.writeCurrentData();
+                }
+            }
+        });
+        mWriterThread.start();
     }
     public void onNegativeClick(String s) {
     }
@@ -194,10 +204,19 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         super.onPause();
         mGLView.onPause();
         if (mIsConnectedService) {
-            done = true;
+            capturing = false;
             JNIInterface.tangoDisconnect();
         }
         JNIInterface.freeGLContent();
+        if (savefilename != null && savefilename.length() > 0) {
+            String[] filenames = new String[]{
+                    "/sdcard/" + savefilename,
+                    "/sdcard/" + savefilename + ".pts"
+            };
+            sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse(filenames[0])));
+            sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse(filenames[1])));
+            MediaScannerConnection.scanFile(MainActivity.this, filenames, null, null);
+        }
     }
 
     @Override
@@ -238,15 +257,6 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         }
 
         mIsConnectedService = true;
-        mWriterThread = new Thread(new Runnable() {
-            public void run() {
-                while(!done) {
-                    JNIInterface.writeCurrentData();
-                }
-            }
-        });
-        done = false;
-        mWriterThread.start();
     }
 
     @Override
