@@ -114,6 +114,17 @@ Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_setDepthAlphaValue(
   return app.SetDepthAlphaValue(alpha);
 }
 
+JNIEXPORT jstring JNICALL
+Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_getAdfList(
+    JNIEnv* env, jobject) {
+  return env->NewStringUTF(app.getAdfList().c_str());
+}
+JNIEXPORT void JNICALL
+Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_setAdf(
+    JNIEnv* env, jobject, jstring adf) {
+  app.setAdf(env->GetStringUTFChars(adf,NULL));
+}
+
 #ifdef __cplusplus
 }
 #endif

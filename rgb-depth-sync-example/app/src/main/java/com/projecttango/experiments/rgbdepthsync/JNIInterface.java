@@ -51,5 +51,8 @@ public class JNIInterface {
     public static native void startCapture(String filename);
     public static native void stopCapture();
 
+    public static native String getAdfList();
+    public static native void setAdf(String adf);
+
     public static native void setDepthAlphaValue(float alpha);
 }

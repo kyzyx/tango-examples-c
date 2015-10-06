@@ -26,6 +26,12 @@ namespace util {
 // Returns a transformation matrix from a given TangoPoseData structure.
 // - pose_data: The original pose is used for the conversion.
 glm::mat4 GetMatrixFromPose(const TangoPoseData* pose_data);
+
+// ADF Metadata getters and setters by uuid
+void SetUUIDMetadataValue(const char* uuid, const char* key,
+                                         int value_size, const char* value);
+char* GetUUIDMetadataValue(const char* uuid, const char* key);
+
 }  // namespace util
 }  // namespace rgb_depth_sync
 

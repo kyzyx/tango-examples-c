@@ -111,6 +111,9 @@ class SynchronizationApplication {
   //
   void OnColorFrameAvailable(const TangoImageBuffer* buffer);
 
+  std::string getAdfList();
+  void setAdf(std::string adfuuid) { uuid = adfuuid; }
+
  private:
   // Color image buffers
   // Data is assumed to be in YUV format (NV21)
@@ -161,6 +164,9 @@ class SynchronizationApplication {
   bool capture;
 
   TangoCameraIntrinsics color_camera_intrinsics;
+
+  // Area learning variables
+  std::string uuid;
 
   // RGB image
   ColorImage* color_image_;

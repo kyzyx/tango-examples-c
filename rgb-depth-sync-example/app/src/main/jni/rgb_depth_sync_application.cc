@@ -16,6 +16,7 @@
 #include <tango-gl/conversions.h>
 
 #include <rgb-depth-sync/rgb_depth_sync_application.h>
+using namespace std;
 
 namespace rgb_depth_sync {
 
@@ -122,6 +123,32 @@ int SynchronizationApplication::TangoInitialize(JNIEnv* env,
   // and jobject corresponding to the Android activity that is calling us.
   return TangoService_initialize(env, caller_activity);
 }
+std::string SynchronizationApplication::getAdfList() {
+    char* uuid_list;
+    if (TangoService_getAreaDescriptionUUIDList(&uuid_list) != TANGO_SUCCESS) {
+          LOGI("TangoService_getAreaDescriptionUUIDList");
+    }
+    if (uuid_list && uuid_list[0]) {
+        vector<string> adf_list;
+
+        char* parsing_char;
+        parsing_char = strtok(uuid_list, ",");
+        while (parsing_char != NULL) {
+            string s = string(parsing_char);
+            LOGI("parsed: %s", parsing_char);
+            adf_list.push_back(s);
+            parsing_char = strtok(NULL, ",");
+        }
+
+        string ret;
+        for (int i = 0; i < adf_list.size(); i++) {
+            char* name = util::GetUUIDMetadataValue(adf_list[i].c_str(), "name");
+            ret = ret + adf_list[i] + ":" + name + ";";
+        }
+        return ret;
+    }
+    return "";
+}
 
 int SynchronizationApplication::TangoSetupConfig() {
   // Here, we'll configure the service to run in the way we'd want. For this
@@ -151,6 +178,15 @@ int SynchronizationApplication::TangoSetupConfig() {
   if (ret != TANGO_SUCCESS) {
     LOGE("Failed to enable low latency imu integration.");
     return ret;
+  }
+
+  if (uuid.length() > 0) {
+      ret = TangoConfig_setString(tango_config_,
+              "config_load_area_description_UUID", uuid.c_str());
+      if (ret != TANGO_SUCCESS) {
+          LOGE("Failed to load area description file %s.", uuid.c_str());
+          return ret;
+      }
   }
   return ret;
 }

@@ -43,9 +43,7 @@ import android.widget.Toast;
 /**
  * Activity that load up the main screen of the app, this is the launcher activity.
  */
-public class MainActivity extends Activity implements FilenameSelectDialog.FilenameSelectDialogListener {
-    // Used for startActivityForResult on our motion tracking permission.
-    private static final int REQUEST_PERMISSION_MOTION_TRACKING = 0;
+public class MainActivity extends Activity implements FilenameSelectDialog.FilenameSelectDialogListener, AdfSelectDialog.AdfSelectDialogListener {
     /// The input argument is invalid.
     private static final int  TANGO_INVALID = -2;
     /// This error code denotes some sort of hard error occurred.
@@ -53,13 +51,19 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     /// This code indicates success.
     private static final int  TANGO_SUCCESS = 0;
 
-    // Motion Tracking permission request action.
-    private static final String MOTION_TRACKING_PERMISSION_ACTION =
-            "android.intent.action.REQUEST_TANGO_PERMISSION";
+    public static final String USE_AREA_LEARNING =
+            "com.projecttango.experiments.areadescriptionjava.usearealearning";
+    public static final String LOAD_ADF =
+            "com.projecttango.experiments.areadescriptionjava.loadadf";
 
     // Key string for requesting and checking Motion Tracking permission.
     private static final String MOTION_TRACKING_PERMISSION =
             "MOTION_TRACKING_PERMISSION";
+    private static final String AREA_LEARNING_PERMISSION =
+            "ADF_LOAD_SAVE_PERMISSION";
+    // Permission request action.
+    private static final String REQUEST_PERMISSION_ACTION =
+            "android.intent.action.REQUEST_TANGO_PERMISSION";
 
     private GLSurfaceRenderer mRenderer;
     private GLSurfaceView mGLView;
@@ -67,6 +71,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     private SeekBar mDepthOverlaySeekbar;
     private CheckBox mdebugOverlayCheckbox;
     private Button mStartCaptureButton;
+    private Button mOpenAdfButton;
 
     private boolean mIsConnectedService = false;
 
@@ -112,7 +117,6 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     public void onPositiveClick(String s) {
         mStartCaptureButton.setText("Stop Capture");
         savefilename = s;
-        //Log.d(TAG, "onPositiveClick save file " + s);
         JNIInterface.startCapture(s);
         capturing = true;
         mWriterThread = new Thread(new Runnable() {
@@ -127,21 +131,39 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     public void onNegativeClick(String s) {
     }
 
-    private class StartCaptureClickListener implements Button.OnClickListener {
-        @Override
-        public void onClick(View v) {
-            if (capturing) {
-                mStartCaptureButton.setText("Start Capture");
-                JNIInterface.stopCapture();
-                capturing = false;
-            }
-            else {
-                DialogFragment saveDialog = new FilenameSelectDialog();
-                saveDialog.show(getFragmentManager(), "saveDialog");
-            }
+    // AdfSelectDialogListener methods
+    public void onAdfSelected(String s) {
+        JNIInterface.setAdf(s);
+        // FIXME: Disable start capture until localized
+        JNIInterface.tangoDisconnect();
+        mIsConnectedService = false;
+        int ret = JNIInterface.tangoSetupConfig();
+        if (ret != TANGO_SUCCESS) {
+            Log.e(TAG, "Failed to set config with code: "  + ret);
+            finish();
         }
-    }
 
+        ret = JNIInterface.tangoConnectCallbacks();
+        if (ret != TANGO_SUCCESS) {
+            Log.e(TAG, "Failed to set connect cbs with code: "  + ret);
+            finish();
+        }
+
+        ret = JNIInterface.tangoConnect();
+        if (ret != TANGO_SUCCESS) {
+            Log.e(TAG, "Failed to set connect service with code: "  + ret);
+            finish();
+        }
+        mIsConnectedService = true;
+    }
+    public void onAdfCancel() {
+        
+    }
+    public void stopCapture() {
+        mStartCaptureButton.setText("Start Capture");
+        JNIInterface.stopCapture();
+        capturing = false;
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -174,7 +196,49 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         mdebugOverlayCheckbox.setOnCheckedChangeListener(new DebugOverlayCheckboxListner());
 
         mStartCaptureButton = (Button) findViewById(R.id.startCaptureButton);
-        mStartCaptureButton.setOnClickListener(new StartCaptureClickListener());
+        mStartCaptureButton.setOnClickListener(new Button.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (capturing) {
+                    stopCapture();
+                }
+                else {
+                    DialogFragment saveDialog = new FilenameSelectDialog();
+                    saveDialog.show(getFragmentManager(), "saveDialog");
+                }
+            }
+        });
+
+        mOpenAdfButton = (Button) findViewById(R.id.openAdfButton);
+        mOpenAdfButton.setOnClickListener(new Button.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (capturing) {
+                    stopCapture();
+                }
+                String s = JNIInterface.getAdfList();
+                if (s.length() == 0) {
+                    (new DialogFragment() {
+                        @Override
+                        public Dialog onCreateDialog(Bundle savedInstanceState) {
+                            android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(getActivity());
+                            builder.setMessage("No ADF files found")
+                                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int i) {
+                                    }
+                                });
+                            return builder.create();
+                        }
+                    }).show(getFragmentManager(), "errorNoAdf");
+                } else {
+                    AdfSelectDialog selectAdfDialog = new AdfSelectDialog();
+                    selectAdfDialog.setAdfstring(s);
+                    selectAdfDialog.show(getFragmentManager(), "selectAdf");
+                }
+            }
+        });
+
         // OpenGL view where all of the graphics are drawn
         mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
 
@@ -193,9 +257,13 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         // low level control of our graphics, we can still use the Java API to
         // check that we have the correct permissions.
         if (!hasPermission(this, MOTION_TRACKING_PERMISSION)) {
-            getMotionTrackingPermission();
+            getPermission(MOTION_TRACKING_PERMISSION);
         } else {
-            mGLView.onResume();
+            if (!hasPermission(this, AREA_LEARNING_PERMISSION)) {
+                getPermission(AREA_LEARNING_PERMISSION);
+            } else {
+                mGLView.onResume();
+            }
         }
     }
 
@@ -204,7 +272,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         super.onPause();
         mGLView.onPause();
         if (mIsConnectedService) {
-            capturing = false;
+            if (capturing) stopCapture();
             JNIInterface.tangoDisconnect();
         }
         JNIInterface.freeGLContent();
@@ -261,7 +329,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
 
     @Override
     protected void onActivityResult (int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_PERMISSION_MOTION_TRACKING) {
+        if (requestCode == 0) {
             if (resultCode == RESULT_CANCELED) {
                 mIsConnectedService = false;
                 finish();
@@ -280,13 +348,10 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         }
     }
 
-    // Call the permission intent for the Tango Service to ask for motion tracking
-    // permissions. All permission types can be found here:
-    //   https://developers.google.com/project-tango/apis/c/c-user-permissions
-    private void getMotionTrackingPermission() {
+    private void getPermission(String permissionType) {
         Intent intent = new Intent();
-        intent.setAction(MOTION_TRACKING_PERMISSION_ACTION);
-        intent.putExtra("PERMISSIONTYPE", MOTION_TRACKING_PERMISSION);
+        intent.setAction(REQUEST_PERMISSION_ACTION);
+        intent.putExtra("PERMISSIONTYPE", permissionType);
 
         // After the permission activity is dismissed, we will receive a callback
         // function onActivityResult() with user's result.

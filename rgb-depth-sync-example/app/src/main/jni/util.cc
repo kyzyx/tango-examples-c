@@ -29,4 +29,38 @@ glm::mat4 util::GetMatrixFromPose(const TangoPoseData* pose_data) {
          glm::mat4_cast(rotation);
 }
 
+void util::SetUUIDMetadataValue(const char* uuid, const char* key,
+                                         int value_size, const char* value)
+{
+    char* name;
+    TangoAreaDescriptionMetadata metadata;
+    if (TangoService_getAreaDescriptionMetadata(uuid, &metadata) !=
+            TANGO_SUCCESS) {
+        LOGE("TangoService_getAreaDescriptionMetadata(): Failed");
+    }
+    if (TangoAreaDescriptionMetadata_set(metadata, key, value_size, value) !=
+            TANGO_SUCCESS) {
+        LOGE("TangoAreaDescriptionMetadata_set(): Failed");
+    }
+    if (TangoService_saveAreaDescriptionMetadata(uuid, metadata) !=
+            TANGO_SUCCESS) {
+        LOGE("TangoService_saveAreaDescriptionMetadata(): Failed");
+    }
+}
+char* util::GetUUIDMetadataValue(const char* uuid, const char* key)
+{
+    size_t size = 0;
+    char* name;
+    TangoAreaDescriptionMetadata metadata;
+    if (TangoService_getAreaDescriptionMetadata(uuid, &metadata) !=
+            TANGO_SUCCESS) {
+        LOGE("TangoService_getAreaDescriptionMetadata(): Failed");
+    }
+    if (TangoAreaDescriptionMetadata_get(metadata, key, &size, &name) !=
+            TANGO_SUCCESS) {
+        LOGE("TangoAreaDescriptionMetadata_get(): Failed");
+    }
+    return name;
+}
+
 }  // namespace rgb_depth_sync
