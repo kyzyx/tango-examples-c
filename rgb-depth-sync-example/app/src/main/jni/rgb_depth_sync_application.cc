@@ -282,6 +282,26 @@ int SynchronizationApplication::TangoSetupConfig() {
 
 void SynchronizationApplication::startCapture(std::string filename) {
     datadump = fopen(filename.c_str(), "w");
+
+    int w = color_camera_intrinsics.width;
+    int h = color_camera_intrinsics.height;
+    fprintf(datadump, "ImageStream\n");
+    fprintf(datadump, "width %d\n", w);
+    fprintf(datadump, "height %d\n", h);
+    fprintf(datadump, "fx %f\n", color_camera_intrinsics.fx/w);
+    fprintf(datadump, "fy %f\n", color_camera_intrinsics.fy/h);
+    fprintf(datadump, "px %f\n", color_camera_intrinsics.cx/w);
+    fprintf(datadump, "py %f\n", color_camera_intrinsics.cy/h);
+    if (color_camera_intrinsics.calibration_type == TANGO_CALIBRATION_EQUIDISTANT) {
+        fprintf(datadump, "cameraModelName equidistant\n");
+    } else if (color_camera_intrinsics.calibration_type == TANGO_CALIBRATION_POLYNOMIAL_3_PARAMETERS) {
+        fprintf(datadump, "cameraModelName polynomial3k\n");
+    }
+    for (int i = 0; i < 5; i++) {
+        fprintf(datadump, "radialK%d %f\n", i, color_camera_intrinsics.distortion[i]);
+    }
+    fprintf(datadump, "end_header\n");
+
     capture = true;
 }
 
@@ -331,7 +351,6 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
   // Get the intrinsics for the color camera and pass them on to the depth
   // image. We need these to know how to project the point cloud into the color
   // camera frame.
-  TangoCameraIntrinsics color_camera_intrinsics;
   TangoErrorType ret = TangoService_getCameraIntrinsics(
       TANGO_CAMERA_COLOR, &color_camera_intrinsics);
   if (ret != TANGO_SUCCESS) {
@@ -452,15 +471,31 @@ void SynchronizationApplication::writeCurrentData() {
         }
         else return;
     }
-    fwrite(&timestamp, sizeof(double), 1, datadump);
-    fwrite(&w, sizeof(int), 1, datadump);
-    fwrite(&h, sizeof(int), 1, datadump);
-    fwrite(output_yuv_buffer_.data(), 1, w*h*3/2, datadump);
+    double color_timestamp = timestamp;
+    TangoPoseData pose;  // start T device_t
+    TangoCoordinateFramePair color_frame_pair;
+    color_frame_pair.base = TANGO_COORDINATE_FRAME_START_OF_SERVICE;
+    color_frame_pair.target = TANGO_COORDINATE_FRAME_DEVICE;
+    if (TangoService_getPoseAtTime(color_timestamp, color_frame_pair, &pose) != TANGO_SUCCESS) {
+        LOGE("writeCurrentData: Could not find a valid pose at time %lf"
+                " for the color camera.", color_timestamp);
+    } else {
+        glm::mat4 xform = util::GetMatrixFromPose(&pose) * device_T_color_;
+        // xform is the device_start to color_t1 transform
+        fwrite(&color_timestamp, sizeof(double), 1, datadump);
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 4; j++) {
+                float f = xform[j][i];
+                fwrite(&f, sizeof(float), 1, datadump);
+            }
+        }
+        fwrite(output_yuv_buffer_.data(), 1, w*h*3/2, datadump);
+    }
 }
 
 void SynchronizationApplication::Render() {
 
-  double color_timestamp = 0.0;
+  double color_timestamp = timestamp; //0.0;
   double depth_timestamp = 0.0;
   {
     std::lock_guard<std::mutex> lock(point_cloud_mutex_);

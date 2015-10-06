@@ -129,6 +129,8 @@ class SynchronizationApplication {
   bool renderyuv_swap_signal;
   bool capture;
 
+  TangoCameraIntrinsics color_camera_intrinsics;
+
   // Depth image created by projecting Point Cloud onto RGB image plane.
   DepthImage* depth_image_;
 
