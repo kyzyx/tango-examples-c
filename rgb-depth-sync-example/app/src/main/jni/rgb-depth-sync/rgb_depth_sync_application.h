@@ -112,13 +112,19 @@ class SynchronizationApplication {
  private:
   // RGB image
   ColorImage* color_image_;
-  GLubyte yuv[1280*720*3/2];
-  GLubyte tmp[1280*720*3/2];
-  GLubyte buf[1280*720*3];
+  std::vector<GLubyte> rendercallback_yuv_buffer_;
+  std::vector<GLubyte> outputcallback_yuv_buffer_;
+  std::vector<GLubyte> render_yuv_buffer_;
+  std::vector<GLubyte> output_yuv_buffer_;
+  std::vector<GLubyte> rendershared_yuv_buffer_;
+  std::vector<GLubyte> outputshared_yuv_buffer_;
+
   double timestamp;
   FILE* datadump;
 
   std::mutex data_mutex_;
+  bool outputyuv_swap_signal;
+  bool renderyuv_swap_signal;
 
   // Depth image created by projecting Point Cloud onto RGB image plane.
   DepthImage* depth_image_;
@@ -173,7 +179,7 @@ class SynchronizationApplication {
   // This signal is used to notify update call if there is a new
   // point cloud buffer available and swap the shared and render buffers
   // accordingly.
-  bool swap_signal;
+  bool depth_swap_signal;
 };
 }  // namespace rgb_depth_sync
 

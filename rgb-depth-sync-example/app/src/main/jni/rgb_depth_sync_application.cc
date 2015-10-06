@@ -48,7 +48,7 @@ void SynchronizationApplication::OnXYZijAvailable(const TangoXYZij* xyz_ij) {
     std::lock_guard<std::mutex> lock(point_cloud_mutex_);
     depth_timestamp_ = xyz_ij->timestamp;
     callback_point_cloud_buffer_.swap(shared_point_cloud_buffer_);
-    swap_signal = true;
+    depth_swap_signal = true;
   }
 }
 
@@ -197,9 +197,6 @@ bool nv21_to_rgba(unsigned char* rgba, unsigned char alpha, unsigned char const*
 }
 
 void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* buffer) {
-    // Update texture
-
-    GLuint tex = color_image_->GetTextureId();
     int w = buffer->width;
     int h = buffer->height;
     int fmt;
@@ -209,9 +206,19 @@ void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* b
     //LOGE("%d x %d with format %d, size %d\n", w, h, fmt, buffer->stride);
     // Save images
     if (datadump != NULL) {
-        std::lock_guard<std::mutex> lock(data_mutex_);
-        memcpy(yuv, buffer->data, w*h*3/2);
-        timestamp = buffer->timestamp;
+        int bufsz = w*h*3/2;
+        std::copy(buffer->data, buffer->data + bufsz,
+                rendercallback_yuv_buffer_.begin());
+        std::copy(buffer->data, buffer->data + bufsz,
+                outputcallback_yuv_buffer_.begin());
+        {
+            std::lock_guard<std::mutex> lock(data_mutex_);
+            rendercallback_yuv_buffer_.swap(rendershared_yuv_buffer_);
+            outputcallback_yuv_buffer_.swap(outputshared_yuv_buffer_);
+            renderyuv_swap_signal = true;
+            outputyuv_swap_signal = true;
+            timestamp = buffer->timestamp;
+        }
     }
 }
 
@@ -219,6 +226,12 @@ SynchronizationApplication::SynchronizationApplication() {
   // We'll store the fixed transform between the opengl frame convention.
   // (Y-up, X-right) and tango frame convention. (Z-up, X-right).
   OW_T_SS_ = tango_gl::conversions::opengl_world_T_tango_world();
+  rendercallback_yuv_buffer_.resize(1280*720*3/2);
+  outputcallback_yuv_buffer_.resize(1280*720*3/2);
+  render_yuv_buffer_.resize(1280*720*3/2);
+  output_yuv_buffer_.resize(1280*720*3/2);
+  rendershared_yuv_buffer_.resize(1280*720*3/2);
+  outputshared_yuv_buffer_.resize(1280*720*3/2);
 }
 
 SynchronizationApplication::~SynchronizationApplication() {}
@@ -415,12 +428,16 @@ void SynchronizationApplication::writeCurrentData() {
     int h = 720;
     {
         std::lock_guard<std::mutex> lock(data_mutex_);
-        memcpy(tmp, yuv, w*h*3/2);
+        if (outputyuv_swap_signal) {
+            outputshared_yuv_buffer_.swap(output_yuv_buffer_);
+            outputyuv_swap_signal = false;
+        }
+        else return;
     }
     fwrite(&timestamp, sizeof(double), 1, datadump);
     fwrite(&w, sizeof(int), 1, datadump);
     fwrite(&h, sizeof(int), 1, datadump);
-    fwrite(tmp, 1, w*h*3/2, datadump);
+    fwrite(output_yuv_buffer_.data(), 1, w*h*3/2, datadump);
 }
 
 void SynchronizationApplication::Render() {
@@ -430,9 +447,9 @@ void SynchronizationApplication::Render() {
   {
     std::lock_guard<std::mutex> lock(point_cloud_mutex_);
     depth_timestamp = depth_timestamp_;
-    if (swap_signal) {
+    if (depth_swap_signal) {
       shared_point_cloud_buffer_.swap(render_point_cloud_buffer_);
-      swap_signal = false;
+      depth_swap_signal = false;
     }
   }
   /*
@@ -443,6 +460,21 @@ void SynchronizationApplication::Render() {
     LOGE("SynchronizationApplication: Failed to get a color image.");
   }
   */
+  // Update texture
+  GLuint tex = color_image_->GetTextureId();
+  glEnable(GL_TEXTURE_2D);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    if (renderyuv_swap_signal) {
+        render_yuv_buffer_.swap(rendershared_yuv_buffer_);
+        renderyuv_swap_signal = false;
+    }
+  }
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1280, 720, GL_LUMINANCE, GL_UNSIGNED_BYTE, render_yuv_buffer_.data());
+  glBindTexture(GL_TEXTURE_2D, 0);
+
 
   // Querying the depth image's frame transformation based on the depth image's
   // timestamp.

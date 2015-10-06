@@ -19,13 +19,14 @@
 namespace rgb_depth_sync {
 
 ColorImage::ColorImage() {
-  glEnable(GL_TEXTURE_EXTERNAL_OES);
+  glEnable(GL_TEXTURE_2D);
   glGenTextures(1, &texture_id_);
-  glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture_id_);
-  glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture_id_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 1280, 720, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
-
 ColorImage::~ColorImage() { glDeleteTextures(1, &texture_id_); }
 }  // namespace rgb_depth_sync

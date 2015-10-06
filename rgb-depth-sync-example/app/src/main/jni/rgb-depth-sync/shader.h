@@ -35,11 +35,10 @@ static const char kColorCameraVert[] =
 // Fragment shader for rendering a color texture on full screen with half alpha
 // blending, please note that the color camera texture is samplerExternalOES.
 static const char kColorCameraFrag[] =
-    "#extension GL_OES_EGL_image_external : require\n"
     "precision highp float;\n"
     "precision highp int;\n"
     "uniform float blendAlpha;\n"
-    "uniform samplerExternalOES colorTexture;\n"
+    "uniform sampler2D colorTexture;\n"
     "uniform sampler2D depthTexture;\n"
     "varying vec2 f_textureCoords;\n"
     "void main() {\n"
