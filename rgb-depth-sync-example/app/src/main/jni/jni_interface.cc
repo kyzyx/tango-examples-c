@@ -92,6 +92,17 @@ Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_writeCurrentData(JNI
 }
 
 JNIEXPORT void JNICALL
+Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_startCapture(
+    JNIEnv* env, jobject, jstring filename) {
+  app.startCapture(env->GetStringUTFChars(filename,NULL));
+}
+JNIEXPORT void JNICALL
+Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_stopCapture(
+    JNIEnv* env, jobject) {
+  app.stopCapture();
+}
+
+JNIEXPORT void JNICALL
 Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_freeGLContent(
     JNIEnv*, jobject) {
   app.FreeGLContent();

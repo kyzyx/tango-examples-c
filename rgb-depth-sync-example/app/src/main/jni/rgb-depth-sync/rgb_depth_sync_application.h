@@ -90,6 +90,8 @@ class SynchronizationApplication {
   void Render();
 
   void writeCurrentData();
+  void startCapture(std::string filename);
+  void stopCapture();
 
   // Release all OpenGL resources that are allocated in this app.
   void FreeGLContent();
@@ -125,6 +127,7 @@ class SynchronizationApplication {
   std::mutex data_mutex_;
   bool outputyuv_swap_signal;
   bool renderyuv_swap_signal;
+  bool capture;
 
   // Depth image created by projecting Point Cloud onto RGB image plane.
   DepthImage* depth_image_;

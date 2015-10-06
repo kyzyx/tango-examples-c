@@ -205,20 +205,24 @@ void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* b
     else if (buffer->format == TANGO_HAL_PIXEL_FORMAT_YCrCb_420_SP) fmt = 2;
     //LOGE("%d x %d with format %d, size %d\n", w, h, fmt, buffer->stride);
     // Save images
+    int bufsz = w*h*3/2;
+    std::copy(buffer->data, buffer->data + bufsz,
+            rendercallback_yuv_buffer_.begin());
     if (datadump != NULL) {
-        int bufsz = w*h*3/2;
-        std::copy(buffer->data, buffer->data + bufsz,
-                rendercallback_yuv_buffer_.begin());
         std::copy(buffer->data, buffer->data + bufsz,
                 outputcallback_yuv_buffer_.begin());
-        {
-            std::lock_guard<std::mutex> lock(data_mutex_);
-            rendercallback_yuv_buffer_.swap(rendershared_yuv_buffer_);
+    }
+    {
+        std::lock_guard<std::mutex> lock(data_mutex_);
+        rendercallback_yuv_buffer_.swap(rendershared_yuv_buffer_);
+        renderyuv_swap_signal = true;
+
+        if (datadump != NULL) {
             outputcallback_yuv_buffer_.swap(outputshared_yuv_buffer_);
-            renderyuv_swap_signal = true;
             outputyuv_swap_signal = true;
-            timestamp = buffer->timestamp;
         }
+
+        timestamp = buffer->timestamp;
     }
 }
 
@@ -276,13 +280,26 @@ int SynchronizationApplication::TangoSetupConfig() {
   return ret;
 }
 
+void SynchronizationApplication::startCapture(std::string filename) {
+    datadump = fopen(filename.c_str(), "w");
+    capture = true;
+}
+
+void SynchronizationApplication::stopCapture() {
+    if (capture) {
+        capture = false;
+        double tmp = -1;
+        fwrite(&tmp, sizeof(double), 1, datadump);
+        fclose(datadump);
+    }
+}
+
 int SynchronizationApplication::TangoConnectTexture() {
   // The Tango service allows you to connect an OpenGL texture directly to its
   // RGB and fisheye cameras. This is the most efficient way of receiving
   // images from the service because it avoids copies. You get access to the
   // graphic buffer directly. As we're interested in rendering the color image
   // in our render loop, we'll be polling for the color image as needed.
-    datadump = fopen("/sdcard/datadump.bin", "w");
   return TangoService_connectOnFrameAvailable(
       TANGO_CAMERA_COLOR, this, OnColorFrameAvailableRouter);
   //return TangoService_connectTextureId(
@@ -403,9 +420,9 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
 }
 
 void SynchronizationApplication::TangoDisconnect() {
-    double tmp = -1;
-    fwrite(&tmp, sizeof(double), 1, datadump);
-    fclose(datadump);
+  if (capture) {
+      stopCapture();
+  }
   TangoConfig_free(tango_config_);
   tango_config_ = nullptr;
   TangoService_disconnect();
@@ -424,6 +441,7 @@ void SynchronizationApplication::SetViewPort(int width, int height) {
 }
 
 void SynchronizationApplication::writeCurrentData() {
+    if (!capture) return;
     int w = 1280;
     int h = 720;
     {

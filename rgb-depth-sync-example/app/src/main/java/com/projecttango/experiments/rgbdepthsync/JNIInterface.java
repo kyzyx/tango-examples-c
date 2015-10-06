@@ -48,6 +48,8 @@ public class JNIInterface {
 
     public static native void render();
     public static native void writeCurrentData();
+    public static native void startCapture(String filename);
+    public static native void stopCapture();
 
     public static native void setDepthAlphaValue(float alpha);
 }

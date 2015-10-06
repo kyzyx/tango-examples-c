@@ -43,7 +43,7 @@ static const char kColorCameraFrag[] =
     "varying vec2 f_textureCoords;\n"
     "void main() {\n"
     "  vec4 cColor = texture2D(colorTexture, f_textureCoords);\n"
-    "  vec4 cDepth = texture2D(depthTexture, f_textureCoords);\n"
+    "  vec4 cDepth = texture2D(depthTexture, f_textureCoords) * vec4(1,0,0,1);\n"
     "  gl_FragColor = (1.0-blendAlpha) * cColor + blendAlpha * cDepth;;\n"
     "}\n";
 
