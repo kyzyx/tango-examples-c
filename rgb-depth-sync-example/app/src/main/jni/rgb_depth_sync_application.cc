@@ -41,14 +41,25 @@ void OnColorFrameAvailableRouter(
 void SynchronizationApplication::OnXYZijAvailable(const TangoXYZij* xyz_ij) {
   // We'll just update the point cloud associated with our depth image.
   size_t point_cloud_size = xyz_ij->xyz_count * 3;
-  callback_point_cloud_buffer_.resize(point_cloud_size);
+  if (datadump != NULL) {
+      outputcallback_point_cloud_buffer_.resize(point_cloud_size);
+      std::copy(xyz_ij->xyz[0], xyz_ij->xyz[0] + point_cloud_size,
+              outputcallback_point_cloud_buffer_.begin());
+    {
+        std::lock_guard<std::mutex> lock(outputpoint_cloud_mutex_);
+        outputdepth_timestamp_ = xyz_ij->timestamp;
+        outputcallback_point_cloud_buffer_.swap(outputshared_point_cloud_buffer_);
+        outputdepth_swap_signal = true;
+    }
+  }
+  rendercallback_point_cloud_buffer_.resize(point_cloud_size);
   std::copy(xyz_ij->xyz[0], xyz_ij->xyz[0] + point_cloud_size,
-            callback_point_cloud_buffer_.begin());
+            rendercallback_point_cloud_buffer_.begin());
   {
-    std::lock_guard<std::mutex> lock(point_cloud_mutex_);
-    depth_timestamp_ = xyz_ij->timestamp;
-    callback_point_cloud_buffer_.swap(shared_point_cloud_buffer_);
-    depth_swap_signal = true;
+    std::lock_guard<std::mutex> lock(renderpoint_cloud_mutex_);
+    renderdepth_timestamp_ = xyz_ij->timestamp;
+    rendercallback_point_cloud_buffer_.swap(rendershared_point_cloud_buffer_);
+    renderdepth_swap_signal = true;
   }
 }
 
@@ -206,23 +217,23 @@ void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* b
     //LOGE("%d x %d with format %d, size %d\n", w, h, fmt, buffer->stride);
     // Save images
     int bufsz = w*h*3/2;
-    std::copy(buffer->data, buffer->data + bufsz,
-            rendercallback_yuv_buffer_.begin());
     if (datadump != NULL) {
         std::copy(buffer->data, buffer->data + bufsz,
                 outputcallback_yuv_buffer_.begin());
-    }
-    {
-        std::lock_guard<std::mutex> lock(data_mutex_);
-        rendercallback_yuv_buffer_.swap(rendershared_yuv_buffer_);
-        renderyuv_swap_signal = true;
-
-        if (datadump != NULL) {
+        {
+            std::lock_guard<std::mutex> lock(outputcolor_mutex_);
             outputcallback_yuv_buffer_.swap(outputshared_yuv_buffer_);
             outputyuv_swap_signal = true;
+            outputcolor_timestamp_ = buffer->timestamp;
         }
-
-        timestamp = buffer->timestamp;
+    }
+    std::copy(buffer->data, buffer->data + bufsz,
+            rendercallback_yuv_buffer_.begin());
+    {
+        std::lock_guard<std::mutex> lock(rendercolor_mutex_);
+        rendercallback_yuv_buffer_.swap(rendershared_yuv_buffer_);
+        renderyuv_swap_signal = true;
+        rendercolor_timestamp_ = buffer->timestamp;
     }
 }
 
@@ -281,7 +292,10 @@ int SynchronizationApplication::TangoSetupConfig() {
 }
 
 void SynchronizationApplication::startCapture(std::string filename) {
-    datadump = fopen(filename.c_str(), "w");
+    std::string filepath = "/sdcard/" + filename;
+    datadump = fopen(filepath.c_str(), "w");
+    std::string depthfilepath = filepath + ".pts";
+    depthdatadump = fopen(depthfilepath.c_str(), "w");
 
     int w = color_camera_intrinsics.width;
     int h = color_camera_intrinsics.height;
@@ -311,6 +325,7 @@ void SynchronizationApplication::stopCapture() {
         double tmp = -1;
         fwrite(&tmp, sizeof(double), 1, datadump);
         fclose(datadump);
+        fclose(depthdatadump);
     }
 }
 
@@ -461,17 +476,18 @@ void SynchronizationApplication::SetViewPort(int width, int height) {
 
 void SynchronizationApplication::writeCurrentData() {
     if (!capture) return;
+    // Write color data
     int w = 1280;
     int h = 720;
     {
-        std::lock_guard<std::mutex> lock(data_mutex_);
+        std::lock_guard<std::mutex> lock(outputcolor_mutex_);
         if (outputyuv_swap_signal) {
             outputshared_yuv_buffer_.swap(output_yuv_buffer_);
             outputyuv_swap_signal = false;
         }
         else return;
     }
-    double color_timestamp = timestamp;
+    double color_timestamp = outputcolor_timestamp_;
     TangoPoseData pose;  // start T device_t
     TangoCoordinateFramePair color_frame_pair;
     color_frame_pair.base = TANGO_COORDINATE_FRAME_START_OF_SERVICE;
@@ -491,18 +507,46 @@ void SynchronizationApplication::writeCurrentData() {
         }
         fwrite(output_yuv_buffer_.data(), 1, w*h*3/2, datadump);
     }
+    // Write depth data
+    {
+        std::lock_guard<std::mutex> lock(outputpoint_cloud_mutex_);
+        if (outputdepth_swap_signal) {
+            outputshared_point_cloud_buffer_.swap(output_point_cloud_buffer_);
+            outputdepth_swap_signal = false;
+        }
+        else return;
+    }
+    double depth_timestamp = outputdepth_timestamp_;
+    TangoCoordinateFramePair depth_frame_pair;
+    depth_frame_pair.base = TANGO_COORDINATE_FRAME_START_OF_SERVICE;
+    depth_frame_pair.target = TANGO_COORDINATE_FRAME_DEVICE;
+    if (TangoService_getPoseAtTime(depth_timestamp, depth_frame_pair, &pose) != TANGO_SUCCESS) {
+        LOGE("writeCurrentData: Could not find a valid pose at time %lf"
+                " for the depth camera.", depth_timestamp);
+    } else {
+        glm::mat4 xform = util::GetMatrixFromPose(&pose) * device_T_depth_;
+        int sz = output_point_cloud_buffer_.size();
+        fwrite(&sz, sizeof(int), 1, depthdatadump);
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 4; j++) {
+                float f = xform[j][i];
+                fwrite(&f, sizeof(float), 1, depthdatadump);
+            }
+        }
+        fwrite(output_point_cloud_buffer_.data(), sizeof(float), sz, depthdatadump);
+    }
 }
 
 void SynchronizationApplication::Render() {
 
-  double color_timestamp = timestamp; //0.0;
+  double color_timestamp = 0.0;
   double depth_timestamp = 0.0;
   {
-    std::lock_guard<std::mutex> lock(point_cloud_mutex_);
-    depth_timestamp = depth_timestamp_;
-    if (depth_swap_signal) {
-      shared_point_cloud_buffer_.swap(render_point_cloud_buffer_);
-      depth_swap_signal = false;
+    std::lock_guard<std::mutex> lock(renderpoint_cloud_mutex_);
+    depth_timestamp = renderdepth_timestamp_;
+    if (renderdepth_swap_signal) {
+      rendershared_point_cloud_buffer_.swap(render_point_cloud_buffer_);
+      renderdepth_swap_signal = false;
     }
   }
   /*
@@ -519,7 +563,8 @@ void SynchronizationApplication::Render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
   {
-    std::lock_guard<std::mutex> lock(data_mutex_);
+    std::lock_guard<std::mutex> lock(rendercolor_mutex_);
+    color_timestamp = rendercolor_timestamp_;
     if (renderyuv_swap_signal) {
         render_yuv_buffer_.swap(rendershared_yuv_buffer_);
         renderyuv_swap_signal = false;

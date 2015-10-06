@@ -114,6 +114,9 @@ class SynchronizationApplication {
  private:
   // RGB image
   ColorImage* color_image_;
+
+  // Color image buffers
+  // Data is assumed to be in YUV format (NV21)
   std::vector<GLubyte> rendercallback_yuv_buffer_;
   std::vector<GLubyte> outputcallback_yuv_buffer_;
   std::vector<GLubyte> render_yuv_buffer_;
@@ -121,12 +124,38 @@ class SynchronizationApplication {
   std::vector<GLubyte> rendershared_yuv_buffer_;
   std::vector<GLubyte> outputshared_yuv_buffer_;
 
-  double timestamp;
-  FILE* datadump;
-
-  std::mutex data_mutex_;
+  double outputcolor_timestamp_;
+  double rendercolor_timestamp_;
+  std::mutex outputcolor_mutex_;
+  std::mutex rendercolor_mutex_;
   bool outputyuv_swap_signal;
   bool renderyuv_swap_signal;
+
+  // Depth image buffers
+  // The data is an array of packed coordinate triplets, x,y,z as floating point
+  // values. With the unit in landscape orientation, screen facing the user:
+  // +Z points in the direction of the camera's optical axis, and is measured
+  // perpendicular to the plane of the camera.
+  // +X points toward the user's right, and +Y points toward the bottom of
+  // the screen.
+  // The origin is the focal centre of the color camera.
+  // The output is in units of metres.
+  std::vector<float> rendercallback_point_cloud_buffer_;
+  std::vector<float> outputcallback_point_cloud_buffer_;
+  std::vector<float> rendershared_point_cloud_buffer_;
+  std::vector<float> outputshared_point_cloud_buffer_;
+  std::vector<float> render_point_cloud_buffer_;
+  std::vector<float> output_point_cloud_buffer_;
+
+  double outputdepth_timestamp_;
+  double renderdepth_timestamp_;
+  std::mutex outputpoint_cloud_mutex_;
+  std::mutex renderpoint_cloud_mutex_;
+  bool outputdepth_swap_signal;
+  bool renderdepth_swap_signal;
+
+  FILE* datadump;
+  FILE* depthdatadump;
   bool capture;
 
   TangoCameraIntrinsics color_camera_intrinsics;
@@ -153,38 +182,6 @@ class SynchronizationApplication {
   float screen_width_;
   float screen_height_;
 
-  // This is the buffer to which point cloud data from TangoService callback
-  // gets copied out to.
-  // The data is an array of packed coordinate triplets, x,y,z as floating point
-  // values. With the unit in landscape orientation, screen facing the user:
-  // +Z points in the direction of the camera's optical axis, and is measured
-  // perpendicular to the plane of the camera.
-  // +X points toward the user's right, and +Y points toward the bottom of
-  // the screen.
-  // The origin is the focal centre of the color camera.
-  // The output is in units of metres.
-  std::vector<float> callback_point_cloud_buffer_;
-
-  // The buffer of point cloud data which is shared between TangoService
-  // callback and render loop.
-  std::vector<float> shared_point_cloud_buffer_;
-
-  // This buffer is used in the render loop to project point cloud data to
-  // a 2D image plane which is of the same size as RGB image.
-  std::vector<float> render_point_cloud_buffer_;
-
-  // Time of capture of the current depth data (in seconds).
-  double depth_timestamp_;
-
-  // Mutex for protecting the point cloud data. The point cloud data is shared
-  // between update call which is called from render loop and
-  // TangoService callback thread.
-  std::mutex point_cloud_mutex_;
-
-  // This signal is used to notify update call if there is a new
-  // point cloud buffer available and swap the shared and render buffers
-  // accordingly.
-  bool depth_swap_signal;
 };
 }  // namespace rgb_depth_sync
 
