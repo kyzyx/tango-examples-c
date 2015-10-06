@@ -43,12 +43,20 @@ void SynchronizationApplication::OnXYZijAvailable(const TangoXYZij* xyz_ij) {
   size_t point_cloud_size = xyz_ij->xyz_count * 3;
   if (datadump != NULL) {
       outputcallback_point_cloud_buffer_.resize(point_cloud_size);
+      int w = xyz_ij->ij_cols;
+      int h = xyz_ij->ij_rows;
+      callback_pointindices_.resize(w*h);
       std::copy(xyz_ij->xyz[0], xyz_ij->xyz[0] + point_cloud_size,
               outputcallback_point_cloud_buffer_.begin());
+      std::copy(xyz_ij->ij, xyz_ij->ij + w*h,
+              callback_pointindices_.begin());
     {
         std::lock_guard<std::mutex> lock(outputpoint_cloud_mutex_);
+        depthw = w;
+        depthh = h;
         outputdepth_timestamp_ = xyz_ij->timestamp;
         outputcallback_point_cloud_buffer_.swap(outputshared_point_cloud_buffer_);
+        callback_pointindices_.swap(shared_pointindices_);
         outputdepth_swap_signal = true;
     }
   }
@@ -364,10 +372,14 @@ void SynchronizationApplication::writeCurrentData() {
         fwrite(output_yuv_buffer_.data(), 1, w*h*3/2, datadump);
     }
     // Write depth data
+    int dw, dh;
     {
         std::lock_guard<std::mutex> lock(outputpoint_cloud_mutex_);
+        dw = depthw;
+        dh = depthh;
         if (outputdepth_swap_signal) {
             outputshared_point_cloud_buffer_.swap(output_point_cloud_buffer_);
+            shared_pointindices_.swap(output_pointindices_);
             outputdepth_swap_signal = false;
         }
         else return;
@@ -383,6 +395,8 @@ void SynchronizationApplication::writeCurrentData() {
         glm::mat4 xform = util::GetMatrixFromPose(&pose) * device_T_depth_;
         int sz = output_point_cloud_buffer_.size();
         fwrite(&sz, sizeof(int), 1, depthdatadump);
+        fwrite(&dw, sizeof(int), 1, depthdatadump);
+        fwrite(&dh, sizeof(int), 1, depthdatadump);
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 4; j++) {
                 float f = xform[j][i];
@@ -390,6 +404,7 @@ void SynchronizationApplication::writeCurrentData() {
             }
         }
         fwrite(output_point_cloud_buffer_.data(), sizeof(float), sz, depthdatadump);
+        fwrite(output_pointindices_.data(), sizeof(int), dw*dh, depthdatadump);
     }
 }
 

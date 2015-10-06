@@ -112,9 +112,6 @@ class SynchronizationApplication {
   void OnColorFrameAvailable(const TangoImageBuffer* buffer);
 
  private:
-  // RGB image
-  ColorImage* color_image_;
-
   // Color image buffers
   // Data is assumed to be in YUV format (NV21)
   std::vector<GLubyte> rendercallback_yuv_buffer_;
@@ -146,6 +143,11 @@ class SynchronizationApplication {
   std::vector<float> outputshared_point_cloud_buffer_;
   std::vector<float> render_point_cloud_buffer_;
   std::vector<float> output_point_cloud_buffer_;
+  std::vector<uint32_t> callback_pointindices_;
+  std::vector<uint32_t> shared_pointindices_;
+  std::vector<uint32_t> output_pointindices_;
+
+  int depthw, depthh;
 
   double outputdepth_timestamp_;
   double renderdepth_timestamp_;
@@ -159,6 +161,9 @@ class SynchronizationApplication {
   bool capture;
 
   TangoCameraIntrinsics color_camera_intrinsics;
+
+  // RGB image
+  ColorImage* color_image_;
 
   // Depth image created by projecting Point Cloud onto RGB image plane.
   DepthImage* depth_image_;
