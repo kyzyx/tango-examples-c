@@ -17,8 +17,11 @@
 package com.projecttango.experiments.rgbdepthsync;
 
 import android.app.Activity;
+import android.app.DialogFragment;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Point;
@@ -27,8 +30,10 @@ import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Display;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.SeekBar;
@@ -37,7 +42,7 @@ import android.widget.Toast;
 /**
  * Activity that load up the main screen of the app, this is the launcher activity.
  */
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements FilenameSelectDialog.FilenameSelectDialogListener {
     // Used for startActivityForResult on our motion tracking permission.
     private static final int REQUEST_PERMISSION_MOTION_TRACKING = 0;
     /// The input argument is invalid.
@@ -60,6 +65,7 @@ public class MainActivity extends Activity {
 
     private SeekBar mDepthOverlaySeekbar;
     private CheckBox mdebugOverlayCheckbox;
+    private Button mStartCaptureButton;
 
     private boolean mIsConnectedService = false;
 
@@ -67,6 +73,8 @@ public class MainActivity extends Activity {
 
     private Thread mWriterThread;
     private boolean done;
+
+    private boolean capturing;
 
     private class DepthOverlaySeekbarListner implements SeekBar.OnSeekBarChangeListener {
         @Override
@@ -95,6 +103,31 @@ public class MainActivity extends Activity {
                     JNIInterface.setDepthAlphaValue(0.0f);
                     mDepthOverlaySeekbar.setVisibility(View.GONE);
                 }
+            }
+        }
+    }
+
+    // FilenameSelectDialogListener methods
+    public void onPositiveClick(String s) {
+        mStartCaptureButton.setText("Stop Capture");
+        Log.d(TAG, "onPositiveClick save file " + s);
+        //JNIInterface.startCapture(s);
+        capturing = true;
+    }
+    public void onNegativeClick(String s) {
+    }
+
+    private class StartCaptureClickListener implements Button.OnClickListener {
+        @Override
+        public void onClick(View v) {
+            if (capturing) {
+                mStartCaptureButton.setText("Start Capture");
+                JNIInterface.stopCapture();
+                capturing = false;
+            }
+            else {
+                DialogFragment saveDialog = new FilenameSelectDialog();
+                saveDialog.show(getFragmentManager(), "saveDialog");
             }
         }
     }
@@ -130,6 +163,8 @@ public class MainActivity extends Activity {
         mdebugOverlayCheckbox = (CheckBox) findViewById(R.id.debug_overlay_checkbox);
         mdebugOverlayCheckbox.setOnCheckedChangeListener(new DebugOverlayCheckboxListner());
 
+        mStartCaptureButton = (Button) findViewById(R.id.startCaptureButton);
+        mStartCaptureButton.setOnClickListener(new StartCaptureClickListener());
         // OpenGL view where all of the graphics are drawn
         mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
 
