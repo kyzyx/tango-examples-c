@@ -9,19 +9,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 
-/**
- * Created by zyxlyr on 10/5/15.
- */
 public class FilenameSelectDialog extends DialogFragment {
     public FilenameSelectDialog() {
 
     }
     public interface FilenameSelectDialogListener {
-        public void onPositiveClick(String s);
-        public void onNegativeClick(String s);
+        void onPositiveClick(String s);
+        void onNegativeClick(String s);
     }
 
-    View v;
     FilenameSelectDialogListener listener;
 
     @Override

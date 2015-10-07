@@ -5,19 +5,14 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.view.LayoutInflater;
-import android.view.View;
 
-/**
- * Created by zyxlyr on 10/6/15.
- */
 public class AdfSelectDialog extends DialogFragment {
     public AdfSelectDialog() {
 
     }
     public interface AdfSelectDialogListener {
-        public void onAdfSelected(String s);
-        public void onAdfCancel();
+        void onAdfSelected(String s);
+        void onAdfCancel();
     }
 
     AdfSelectDialogListener listener;

@@ -19,7 +19,6 @@ package com.projecttango.experiments.rgbdepthsync;
 import android.app.Activity;
 import android.app.DialogFragment;
 import android.app.Dialog;
-import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -29,9 +28,9 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.Display;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -39,6 +38,8 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.SeekBar;
 import android.widget.Toast;
+
+import java.io.File;
 
 /**
  * Activity that load up the main screen of the app, this is the launcher activity.
@@ -51,11 +52,6 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     /// This code indicates success.
     private static final int  TANGO_SUCCESS = 0;
 
-    public static final String USE_AREA_LEARNING =
-            "com.projecttango.experiments.areadescriptionjava.usearealearning";
-    public static final String LOAD_ADF =
-            "com.projecttango.experiments.areadescriptionjava.loadadf";
-
     // Key string for requesting and checking Motion Tracking permission.
     private static final String MOTION_TRACKING_PERMISSION =
             "MOTION_TRACKING_PERMISSION";
@@ -65,13 +61,11 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     private static final String REQUEST_PERMISSION_ACTION =
             "android.intent.action.REQUEST_TANGO_PERMISSION";
 
-    private GLSurfaceRenderer mRenderer;
     private GLSurfaceView mGLView;
 
     private SeekBar mDepthOverlaySeekbar;
     private CheckBox mdebugOverlayCheckbox;
     private Button mStartCaptureButton;
-    private Button mOpenAdfButton;
 
     private boolean mIsConnectedService = false;
 
@@ -115,7 +109,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
 
     // FilenameSelectDialogListener methods
     public void onPositiveClick(String s) {
-        mStartCaptureButton.setText("Stop Capture");
+        mStartCaptureButton.setText(R.string.button_stop_capture);
         savefilename = s;
         JNIInterface.startCapture(s);
         capturing = true;
@@ -160,7 +154,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         
     }
     public void stopCapture() {
-        mStartCaptureButton.setText("Start Capture");
+        mStartCaptureButton.setText(R.string.button_start_capture);
         JNIInterface.stopCapture();
         capturing = false;
     }
@@ -209,7 +203,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
             }
         });
 
-        mOpenAdfButton = (Button) findViewById(R.id.openAdfButton);
+        Button mOpenAdfButton = (Button) findViewById(R.id.openAdfButton);
         mOpenAdfButton.setOnClickListener(new Button.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -243,7 +237,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
 
         // Configure OpenGL renderer
-        mRenderer = new GLSurfaceRenderer(this);
+        GLSurfaceRenderer mRenderer = new GLSurfaceRenderer(this);
         mGLView.setRenderer(mRenderer);
     }
 
@@ -278,8 +272,8 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         JNIInterface.freeGLContent();
         if (savefilename != null && savefilename.length() > 0) {
             String[] filenames = new String[]{
-                    "/sdcard/" + savefilename,
-                    "/sdcard/" + savefilename + ".pts"
+                    (new File(Environment.getExternalStorageDirectory(), savefilename)).getAbsolutePath(),
+                    (new File(Environment.getExternalStorageDirectory(), savefilename + ".pts")).getAbsolutePath()
             };
             sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse(filenames[0])));
             sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse(filenames[1])));
@@ -336,11 +330,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         Uri uri = Uri.parse("content://com.google.atap.tango.PermissionStatusProvider/" +
                 permissionType);
         Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
-        if (cursor == null) {
-            return false;
-        } else {
-            return true;
-        }
+        return cursor == null;
     }
 
     private void getPermission(String permissionType) {
