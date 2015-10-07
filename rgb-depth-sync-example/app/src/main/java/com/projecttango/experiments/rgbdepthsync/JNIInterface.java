@@ -30,8 +30,6 @@ public class JNIInterface {
 
     public static native int tangoSetupConfig();
 
-    public static native int tangoConnectTexture();
-
     public static native int tangoConnect();
 
     public static native int tangoConnectCallbacks();

@@ -29,6 +29,13 @@ glm::mat4 util::GetMatrixFromPose(const TangoPoseData* pose_data) {
          glm::mat4_cast(rotation);
 }
 
+int util::GetDevicePose(double timestamp, TangoPoseData* pose) {
+    TangoCoordinateFramePair pair;
+    pair.base = TANGO_COORDINATE_FRAME_START_OF_SERVICE;
+    pair.target = TANGO_COORDINATE_FRAME_DEVICE;
+    return TangoService_getPoseAtTime(timestamp, pair, pose);
+}
+
 void util::SetUUIDMetadataValue(const char* uuid, const char* key,
                                          int value_size, const char* value)
 {

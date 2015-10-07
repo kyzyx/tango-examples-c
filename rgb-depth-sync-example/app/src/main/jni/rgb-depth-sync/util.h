@@ -27,6 +27,8 @@ namespace util {
 // - pose_data: The original pose is used for the conversion.
 glm::mat4 GetMatrixFromPose(const TangoPoseData* pose_data);
 
+int GetDevicePose(double timestamp, TangoPoseData* pose);
+
 // ADF Metadata getters and setters by uuid
 void SetUUIDMetadataValue(const char* uuid, const char* key,
                                          int value_size, const char* value);

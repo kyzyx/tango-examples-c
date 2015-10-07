@@ -38,12 +38,6 @@ Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_tangoSetupConfig(
 }
 
 JNIEXPORT jint JNICALL
-Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_tangoConnectTexture(
-    JNIEnv*, jobject) {
-  return app.TangoConnectTexture();
-}
-
-JNIEXPORT jint JNICALL
 Java_com_projecttango_experiments_rgbdepthsync_JNIInterface_tangoConnectCallbacks(
     JNIEnv*, jobject) {
   return app.TangoConnectCallbacks();
