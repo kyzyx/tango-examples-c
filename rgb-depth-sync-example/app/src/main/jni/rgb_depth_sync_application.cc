@@ -35,6 +35,13 @@ void OnColorFrameAvailableRouter(
       static_cast<SynchronizationApplication*>(context);
   app->OnColorFrameAvailable(buffer);
 }
+void OnPoseAvailableRouter(
+        void* context, const TangoPoseData* pose)
+{
+  SynchronizationApplication* app =
+      static_cast<SynchronizationApplication*>(context);
+  app->OnPoseAvailable(pose);
+}
 
 // Callbacks
 void SynchronizationApplication::OnXYZijAvailable(const TangoXYZij* xyz_ij) {
@@ -100,6 +107,20 @@ void SynchronizationApplication::OnColorFrameAvailable(const TangoImageBuffer* b
     }
 }
 
+void SynchronizationApplication::OnPoseAvailable(const TangoPoseData* pose) {
+    if (pose->frame.base == TANGO_COORDINATE_FRAME_AREA_DESCRIPTION
+            && pose->frame.target == TANGO_COORDINATE_FRAME_START_OF_SERVICE)
+    {
+        if (pose->status_code == TANGO_POSE_VALID) {
+            std::lock_guard<std::mutex> lock(pose_mutex_);
+            if (!localized) localized = true;
+        } else {
+            std::lock_guard<std::mutex> lock(pose_mutex_);
+            if (localized) localized = false;
+        }
+    }
+}
+
 #pragma endregion
 
 #pragma region Initialization and Cleanup
@@ -113,6 +134,8 @@ SynchronizationApplication::SynchronizationApplication() {
   output_yuv_buffer_.resize(1280*720*3/2);
   rendershared_yuv_buffer_.resize(1280*720*3/2);
   outputshared_yuv_buffer_.resize(1280*720*3/2);
+  tracking = false;
+  localized = false;
 }
 
 SynchronizationApplication::~SynchronizationApplication() {}
@@ -164,6 +187,14 @@ int SynchronizationApplication::TangoConnectCallbacks() {
   ret = TangoService_connectOnFrameAvailable(
       TANGO_CAMERA_COLOR, this, OnColorFrameAvailableRouter);
   if (ret != TANGO_SUCCESS) return ret;
+  if (uuid.length() > 0) {
+      TangoCoordinateFramePair pair;
+      pair.base = TANGO_COORDINATE_FRAME_AREA_DESCRIPTION;
+      pair.target = TANGO_COORDINATE_FRAME_START_OF_SERVICE;
+      ret = TangoService_connectOnPoseAvailable(
+              1, &pair, OnPoseAvailableRouter, this);
+      if (ret != TANGO_SUCCESS) return ret;
+  }
   return ret;
 }
 
@@ -474,26 +505,28 @@ void SynchronizationApplication::Render() {
   glm::mat4 color_t1_T_device_t1 = glm::inverse(device_T_color_);
 
   if (pose_start_service_T_device_t1.status_code == TANGO_POSE_VALID) {
-    if (pose_start_service_T_device_t0.status_code == TANGO_POSE_VALID) {
-      // Note that we are discarding all invalid poses at the moment, another
-      // option could be to use the latest pose when the queried pose is
-      // invalid.
+      if (pose_start_service_T_device_t0.status_code == TANGO_POSE_VALID) {
+          // Note that we are discarding all invalid poses at the moment, another
+          // option could be to use the latest pose when the queried pose is
+          // invalid.
 
-      // The Color Camera frame at timestamp t0 with respect to Depth
-      // Camera frame at timestamp t1.
-      glm::mat4 color_image_t1_T_depth_image_t0 =
-          color_t1_T_device_t1 * glm::inverse(start_service_T_device_t1) *
-          start_service_T_device_t0 * device_t0_T_depth_t0;
+          // The Color Camera frame at timestamp t0 with respect to Depth
+          // Camera frame at timestamp t1.
+          glm::mat4 color_image_t1_T_depth_image_t0 =
+              color_t1_T_device_t1 * glm::inverse(start_service_T_device_t1) *
+              start_service_T_device_t0 * device_t0_T_depth_t0;
 
-      depth_image_->UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
-                                           render_point_cloud_buffer_);
-    } else {
-      LOGE("Invalid pose for ss_t_depth at time: %lf", depth_timestamp);
-    }
+          depth_image_->UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
+                  render_point_cloud_buffer_);
+          tracking = true;
+      } else {
+          tracking = false;
+      }
   } else {
-    LOGE("Invalid pose for ss_t_color at time: %lf", color_timestamp);
+      tracking = false;
   }
   main_scene_->Render();
+  main_scene_->RenderTrackingStatus(tracking, localized);
 }
 
 }  // namespace rgb_depth_sync

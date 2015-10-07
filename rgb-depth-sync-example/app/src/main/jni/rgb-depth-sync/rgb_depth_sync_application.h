@@ -55,6 +55,7 @@ class SynchronizationApplication {
   // Callback functions
   void OnXYZijAvailable(const TangoXYZij* xyz_ij);
   void OnColorFrameAvailable(const TangoImageBuffer* buffer);
+  void OnPoseAvailable(const TangoPoseData* pose);
 
   // Data capture functions
   void startCapture(std::string filename);
@@ -115,6 +116,9 @@ class SynchronizationApplication {
 
   // Pose variables
   TangoCameraIntrinsics color_camera_intrinsics;
+  bool tracking;
+  bool localized;
+  std::mutex pose_mutex_;
 
   // OpenGL helper classes
   ColorImage* color_image_;

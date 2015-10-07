@@ -47,6 +47,26 @@ static const char kColorCameraFrag[] =
     "  gl_FragColor = (1.0-blendAlpha) * cColor + blendAlpha * cDepth;;\n"
     "}\n";
 
+// Vertex shader for rendering a colored circle on screen
+static const char kStatusCircleVert[] =
+    "precision highp float;\n"
+    "precision highp int;\n"
+    "attribute vec4 vertex;\n"
+    "uniform mat4 mvp;\n"
+    "void main() {\n"
+    "  gl_Position = mvp*vertex;\n"
+    "}\n";
+
+// Fragment shader for rendering a color texture on full screen with half alpha
+// blending, please note that the color camera texture is samplerExternalOES.
+static const char kStatusCircleFrag[] =
+    "precision highp float;\n"
+    "precision highp int;\n"
+    "uniform vec4 color;\n"
+    "void main() {\n"
+    "  gl_FragColor = color;\n"
+    "}\n";
+
 }  // namespace shader
 }  // namespace rgb_depth_sync
 

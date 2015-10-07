@@ -57,9 +57,20 @@ Scene::Scene(ColorImage* color_image, DepthImage* depth_image) {
   camera_texture_drawable_.SetColorTextureId(color_image->GetTextureId());
   camera_texture_drawable_.SetDepthTextureId(depth_image->GetTextureId());
   camera_texture_drawable_.SetBlendAlpha(0.0f);
+
+  trackingcircle_ = new StatusCircle(0.05, 32);
+  trackingcircle_->SetColor(0.2,0.3,0.2);
+  trackingcircle_->SetPosition(-0.95,0.9);
+
+  localizedcircle_ = new StatusCircle(0.05, 32);
+  localizedcircle_->SetColor(0.2,0.2,0.3);
+  localizedcircle_->SetPosition(-0.95,0.8);
 }
 
-Scene::~Scene() {}
+Scene::~Scene() {
+    if (trackingcircle_) delete trackingcircle_;
+    if (localizedcircle_) delete localizedcircle_;
+}
 
 void Scene::SetupViewPort(int w, int h) {
   screen_width_ = w;
@@ -79,6 +90,20 @@ void Scene::Render() {
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
   camera_texture_drawable_.RenderImage();
+}
+void Scene::RenderTrackingStatus(int tracking, int localized) {
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    if (tracking > 0) trackingcircle_->SetColor(0,1,0);
+    else if (tracking < 0) trackingcircle_->SetColor(0.2,0.5,0.2);
+    else trackingcircle_->SetColor(0.5,0.2,0.2);
+    if (localized > 0) localizedcircle_->SetColor(0,0,1);
+    else if (localized < 0) localizedcircle_->SetColor(0.2,0.2,0.5);
+    else localizedcircle_->SetColor(0.2,0.2,0.25);
+    glm::mat4 proj(1.0);
+    proj[0][0] = screen_height_/(float)screen_width_;
+    trackingcircle_->Render(proj);
+    localizedcircle_->Render(proj);
 }
 
 void Scene::SetDepthAlphaValue(float alpha) {

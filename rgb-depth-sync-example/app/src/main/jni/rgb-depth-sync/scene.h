@@ -22,6 +22,7 @@
 #include <tango-gl/util.h>
 
 #include "rgb-depth-sync/camera_texture_drawable.h"
+#include "rgb-depth-sync/status_circle.h"
 #include "rgb-depth-sync/color_image.h"
 #include "rgb-depth-sync/depth_image.h"
 
@@ -39,6 +40,8 @@ class Scene {
 
   // Renders the scene onto the camera image.
   void Render();
+
+  void RenderTrackingStatus(int tracking, int localized);
 
   // Set the depth texture's alpha blending value. The range is [0.0, 1.0].
   void SetDepthAlphaValue(float alpha);
@@ -61,6 +64,8 @@ class Scene {
 
   tango_gl::Grid grid_;
   CameraTextureDrawable camera_texture_drawable_;
+  StatusCircle* trackingcircle_;
+  StatusCircle* localizedcircle_;
 };
 }  // namespace rgb_depth_sync
 
