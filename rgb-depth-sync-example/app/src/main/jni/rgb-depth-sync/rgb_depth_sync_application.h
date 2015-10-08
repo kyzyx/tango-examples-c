@@ -80,6 +80,7 @@ class SynchronizationApplication {
   std::vector<GLubyte> outputshared_yuv_buffer_;
 
   double outputcolor_timestamp_;
+  std::vector<double> outputcolor_timestamps;
   double rendercolor_timestamp_;
   std::mutex outputcolor_mutex_;
   std::mutex rendercolor_mutex_;
@@ -100,6 +101,7 @@ class SynchronizationApplication {
   int depthw, depthh;
 
   double outputdepth_timestamp_;
+  std::vector<double> outputdepth_timestamps;
   double renderdepth_timestamp_;
   std::mutex outputpoint_cloud_mutex_;
   std::mutex renderpoint_cloud_mutex_;
@@ -107,8 +109,10 @@ class SynchronizationApplication {
   bool renderdepth_swap_signal;
 
   // Data capture variables
+  std::mutex write_mutex_;
   FILE* datadump;
   FILE* depthdatadump;
+  FILE* imageposes;
   bool capture;
 
   // Area learning variables

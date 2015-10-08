@@ -343,10 +343,14 @@ std::string SynchronizationApplication::getAdfList() {
 
 #pragma region Data Capture methods
 void SynchronizationApplication::startCapture(std::string filename) {
+    std::lock_guard<std::mutex> lock(write_mutex_);
     std::string filepath = "/sdcard/" + filename;
     datadump = fopen(filepath.c_str(), "w");
     std::string depthfilepath = filepath + ".pts";
     depthdatadump = fopen(depthfilepath.c_str(), "w");
+    std::string posefilepath = "/sdcard/" + filename + ".xforms";
+    imageposes = fopen(posefilepath.c_str(), "w");
+
 
     int w = color_camera_intrinsics.width;
     int h = color_camera_intrinsics.height;
@@ -371,45 +375,90 @@ void SynchronizationApplication::startCapture(std::string filename) {
 }
 
 void SynchronizationApplication::stopCapture() {
+    std::lock_guard<std::mutex> lock(write_mutex_);
     if (capture) {
         capture = false;
+        int ret;
+        TangoPoseData pose;
+
+        // Write sentinel values
         double tmp = -1;
         fwrite(&tmp, sizeof(double), 1, datadump);
+        fwrite(&tmp, sizeof(double), 1, depthdatadump);
+
+        // Write all poses
+        for (int z = 0; z < outputcolor_timestamps.size(); z++) {
+            if (uuid.length() > 0) {
+                ret = util::GetGlobalPose(outputcolor_timestamps[z], &pose);
+            } else {
+                ret = util::GetDevicePose(outputcolor_timestamps[z], &pose);
+            }
+            if (ret != TANGO_SUCCESS) {
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        float f = 0;
+                        fwrite(&f, sizeof(float), 1, imageposes);
+                    }
+                }
+            } else {
+                glm::mat4 xform = util::GetMatrixFromPose(&pose) * device_T_color_;
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        float f = xform[j][i];
+                        fwrite(&f, sizeof(float), 1, imageposes);
+                    }
+                }
+            }
+        }
+        for (int z = 0; z < outputdepth_timestamps.size(); z++) {
+            if (uuid.length() > 0) {
+                ret = util::GetGlobalPose(outputdepth_timestamps[z], &pose);
+            } else {
+                ret = util::GetDevicePose(outputdepth_timestamps[z], &pose);
+            }
+            if (ret != TANGO_SUCCESS) {
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        float f = 0;
+                        fwrite(&f, sizeof(float), 1, depthdatadump);
+                    }
+                }
+            } else {
+                glm::mat4 xform = util::GetMatrixFromPose(&pose) * device_T_depth_;
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        float f = xform[j][i];
+                        fwrite(&f, sizeof(float), 1, depthdatadump);
+                    }
+                }
+            }
+        }
         fclose(datadump);
         fclose(depthdatadump);
+        fclose(imageposes);
     }
 }
 
 void SynchronizationApplication::writeCurrentData() {
+    std::lock_guard<std::mutex> lock(write_mutex_);
     if (!capture) return;
     // Write color data
     int w = 1280;
     int h = 720;
+    double color_timestamp, depth_timestamp;
     {
         std::lock_guard<std::mutex> lock(outputcolor_mutex_);
         if (outputyuv_swap_signal) {
             outputshared_yuv_buffer_.swap(output_yuv_buffer_);
+            color_timestamp = outputcolor_timestamp_;
             outputyuv_swap_signal = false;
         }
         else return;
     }
-    double color_timestamp = outputcolor_timestamp_;
-    TangoPoseData pose;  // start T device_t
-    if (util::GetDevicePose(color_timestamp, &pose) != TANGO_SUCCESS) {
-        LOGE("writeCurrentData: Could not find a valid pose at time %lf"
-                " for the color camera.", color_timestamp);
-    } else {
-        glm::mat4 xform = util::GetMatrixFromPose(&pose) * device_T_color_;
-        // xform is the device_start to color_t1 transform
-        fwrite(&color_timestamp, sizeof(double), 1, datadump);
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 4; j++) {
-                float f = xform[j][i];
-                fwrite(&f, sizeof(float), 1, datadump);
-            }
-        }
-        fwrite(output_yuv_buffer_.data(), 1, w*h*3/2, datadump);
-    }
+    outputcolor_timestamps.push_back(color_timestamp);
+    fwrite(&color_timestamp, sizeof(double), 1, datadump);
+    fwrite(output_yuv_buffer_.data(), 1, w*h*3/2, datadump);
+
     // Write depth data
     int dw, dh;
     {
@@ -419,29 +468,19 @@ void SynchronizationApplication::writeCurrentData() {
         if (outputdepth_swap_signal) {
             outputshared_point_cloud_buffer_.swap(output_point_cloud_buffer_);
             shared_pointindices_.swap(output_pointindices_);
+            depth_timestamp = outputdepth_timestamp_;
             outputdepth_swap_signal = false;
         }
         else return;
     }
-    double depth_timestamp = outputdepth_timestamp_;
-    if (util::GetDevicePose(depth_timestamp, &pose) != TANGO_SUCCESS) {
-        LOGE("writeCurrentData: Could not find a valid pose at time %lf"
-                " for the depth camera.", depth_timestamp);
-    } else {
-        glm::mat4 xform = util::GetMatrixFromPose(&pose) * device_T_depth_;
-        int sz = output_point_cloud_buffer_.size();
-        fwrite(&sz, sizeof(int), 1, depthdatadump);
-        fwrite(&dw, sizeof(int), 1, depthdatadump);
-        fwrite(&dh, sizeof(int), 1, depthdatadump);
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 4; j++) {
-                float f = xform[j][i];
-                fwrite(&f, sizeof(float), 1, depthdatadump);
-            }
-        }
-        fwrite(output_point_cloud_buffer_.data(), sizeof(float), sz, depthdatadump);
-        fwrite(output_pointindices_.data(), sizeof(int), dw*dh, depthdatadump);
-    }
+    outputdepth_timestamps.push_back(depth_timestamp);
+    int sz = output_point_cloud_buffer_.size();
+    fwrite(&depth_timestamp, sizeof(double), 1, depthdatadump);
+    fwrite(&sz, sizeof(int), 1, depthdatadump);
+    fwrite(&dw, sizeof(int), 1, depthdatadump);
+    fwrite(&dh, sizeof(int), 1, depthdatadump);
+    fwrite(output_point_cloud_buffer_.data(), sizeof(float), sz, depthdatadump);
+    fwrite(output_pointindices_.data(), sizeof(int), dw*dh, depthdatadump);
 }
 
 #pragma endregion

@@ -35,6 +35,12 @@ int util::GetDevicePose(double timestamp, TangoPoseData* pose) {
     pair.target = TANGO_COORDINATE_FRAME_DEVICE;
     return TangoService_getPoseAtTime(timestamp, pair, pose);
 }
+int util::GetGlobalPose(double timestamp, TangoPoseData* pose) {
+    TangoCoordinateFramePair pair;
+    pair.base = TANGO_COORDINATE_FRAME_AREA_DESCRIPTION;
+    pair.target = TANGO_COORDINATE_FRAME_DEVICE;
+    return TangoService_getPoseAtTime(timestamp, pair, pose);
+}
 
 void util::SetUUIDMetadataValue(const char* uuid, const char* key,
                                          int value_size, const char* value)

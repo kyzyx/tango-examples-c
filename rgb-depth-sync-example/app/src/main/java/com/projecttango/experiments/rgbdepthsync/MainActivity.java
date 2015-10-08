@@ -273,6 +273,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         if (savefilename != null && savefilename.length() > 0) {
             String[] filenames = new String[]{
                     (new File(Environment.getExternalStorageDirectory(), savefilename)).getAbsolutePath(),
+                    (new File(Environment.getExternalStorageDirectory(), savefilename + ".xforms")).getAbsolutePath(),
                     (new File(Environment.getExternalStorageDirectory(), savefilename + ".pts")).getAbsolutePath()
             };
             sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse(filenames[0])));

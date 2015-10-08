@@ -28,6 +28,7 @@ namespace util {
 glm::mat4 GetMatrixFromPose(const TangoPoseData* pose_data);
 
 int GetDevicePose(double timestamp, TangoPoseData* pose);
+int GetGlobalPose(double timestamp, TangoPoseData* pose);
 
 // ADF Metadata getters and setters by uuid
 void SetUUIDMetadataValue(const char* uuid, const char* key,
