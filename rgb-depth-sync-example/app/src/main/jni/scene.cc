@@ -62,11 +62,11 @@ Scene::Scene(ColorImage* color_image, DepthImage* depth_image) {
 
   trackingcircle_ = new StatusCircle(0.05, 32);
   trackingcircle_->SetColor(0.2,0.3,0.2);
-  trackingcircle_->SetPosition(-0.95,0.9);
+  trackingcircle_->SetPosition(-0.95,0.8);
 
   localizedcircle_ = new StatusCircle(0.05, 32);
   localizedcircle_->SetColor(0.2,0.2,0.3);
-  localizedcircle_->SetPosition(-0.95,0.8);
+  localizedcircle_->SetPosition(-0.95,0.675);
 }
 
 Scene::~Scene() {
