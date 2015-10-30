@@ -344,7 +344,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         Uri uri = Uri.parse("content://com.google.atap.tango.PermissionStatusProvider/" +
                 permissionType);
         Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
-        return cursor == null;
+        return cursor != null;
     }
 
     private void getPermission(String permissionType) {
