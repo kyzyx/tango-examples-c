@@ -52,6 +52,9 @@ class SynchronizationApplication {
   void FreeGLContent();
   void SetDepthAlphaValue(float alpha);
 
+  // Set whether to use GPU or CPU upsampling
+  void SetGPUUpsample(bool on);
+
   // Callback functions
   void OnXYZijAvailable(const TangoXYZij* xyz_ij);
   void OnColorFrameAvailable(const TangoImageBuffer* buffer);
@@ -139,6 +142,7 @@ class SynchronizationApplication {
   float screen_width_;
   float screen_height_;
 
+  bool gpu_upsample_;
 };
 }  // namespace rgb_depth_sync
 

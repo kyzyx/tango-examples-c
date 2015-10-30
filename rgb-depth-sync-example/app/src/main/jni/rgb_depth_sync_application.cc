@@ -124,7 +124,8 @@ void SynchronizationApplication::OnPoseAvailable(const TangoPoseData* pose) {
 #pragma endregion
 
 #pragma region Initialization and Cleanup
-SynchronizationApplication::SynchronizationApplication() {
+SynchronizationApplication::SynchronizationApplication() :
+    gpu_upsample_(false) {
   // We'll store the fixed transform between the opengl frame convention.
   // (Y-up, X-right) and tango frame convention. (Z-up, X-right).
   OW_T_SS_ = tango_gl::conversions::opengl_world_T_tango_world();
@@ -489,12 +490,14 @@ void SynchronizationApplication::Render() {
 
   double color_timestamp = 0.0;
   double depth_timestamp = 0.0;
+  bool new_points = false;
   {
     std::lock_guard<std::mutex> lock(renderpoint_cloud_mutex_);
     depth_timestamp = renderdepth_timestamp_;
     if (renderdepth_swap_signal) {
       rendershared_point_cloud_buffer_.swap(render_point_cloud_buffer_);
       renderdepth_swap_signal = false;
+      new_points = true;
     }
   }
   // Update texture
@@ -544,28 +547,37 @@ void SynchronizationApplication::Render() {
   glm::mat4 color_t1_T_device_t1 = glm::inverse(device_T_color_);
 
   if (pose_start_service_T_device_t1.status_code == TANGO_POSE_VALID) {
-      if (pose_start_service_T_device_t0.status_code == TANGO_POSE_VALID) {
-          // Note that we are discarding all invalid poses at the moment, another
-          // option could be to use the latest pose when the queried pose is
-          // invalid.
+    if (pose_start_service_T_device_t0.status_code == TANGO_POSE_VALID) {
+      // Note that we are discarding all invalid poses at the moment, another
+      // option could be to use the latest pose when the queried pose is
+      // invalid.
 
-          // The Color Camera frame at timestamp t0 with respect to Depth
-          // Camera frame at timestamp t1.
-          glm::mat4 color_image_t1_T_depth_image_t0 =
-              color_t1_T_device_t1 * glm::inverse(start_service_T_device_t1) *
-              start_service_T_device_t0 * device_t0_T_depth_t0;
+      // The Color Camera frame at timestamp t0 with respect to Depth
+      // Camera frame at timestamp t1.
+      glm::mat4 color_image_t1_T_depth_image_t0 =
+          color_t1_T_device_t1 * glm::inverse(start_service_T_device_t1) *
+          start_service_T_device_t0 * device_t0_T_depth_t0;
 
-          depth_image_->UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
-                  render_point_cloud_buffer_);
-          tracking = true;
+      if(gpu_upsample_) {
+        depth_image_->RenderDepthToTexture(color_image_t1_T_depth_image_t0,
+                                           render_point_cloud_buffer_, new_points);
       } else {
-          tracking = false;
+        depth_image_->UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
+                                             render_point_cloud_buffer_);
       }
+      tracking = true;
+    } else {
+        tracking = false;
+    }
   } else {
       tracking = false;
   }
   main_scene_->Render();
   main_scene_->RenderTrackingStatus(tracking, localized);
+}
+
+void SynchronizationApplication::SetGPUUpsample(bool on) {
+  gpu_upsample_ = on;
 }
 
 }  // namespace rgb_depth_sync

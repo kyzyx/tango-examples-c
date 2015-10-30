@@ -38,7 +38,7 @@ class Scene {
   // Setup GL view port.
   void SetupViewPort(int w, int h);
 
-  // Renders the scene onto the camera image.
+  // Renders the scene onto the camera image using the provided depth texture.
   void Render();
 
   void RenderTrackingStatus(int tracking, int localized);
@@ -66,6 +66,10 @@ class Scene {
   CameraTextureDrawable camera_texture_drawable_;
   StatusCircle* trackingcircle_;
   StatusCircle* localizedcircle_;
+
+  // These are non-owning pointers and should not be deleted.
+  ColorImage* color_image_;
+  DepthImage* depth_image_;
 };
 }  // namespace rgb_depth_sync
 

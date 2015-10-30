@@ -66,6 +66,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     private SeekBar mDepthOverlaySeekbar;
     private CheckBox mdebugOverlayCheckbox;
     private Button mStartCaptureButton;
+    private CheckBox mGPUUpsampleCheckbox;
 
     private boolean mIsConnectedService = false;
 
@@ -76,7 +77,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     private boolean capturing;
     private String savefilename;
 
-    private class DepthOverlaySeekbarListner implements SeekBar.OnSeekBarChangeListener {
+    private class DepthOverlaySeekbarListener implements SeekBar.OnSeekBarChangeListener {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress,
                 boolean fromUser) {
@@ -90,7 +91,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         public void onStopTrackingTouch(SeekBar seekBar) {}
     }
 
-    private class DebugOverlayCheckboxListner implements CheckBox.OnCheckedChangeListener {
+    private class DebugOverlayCheckboxListener implements CheckBox.OnCheckedChangeListener {
         @Override
         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
             if (buttonView == mdebugOverlayCheckbox) {
@@ -151,13 +152,21 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         mIsConnectedService = true;
     }
     public void onAdfCancel() {
-        
+
     }
     public void stopCapture() {
         mStartCaptureButton.setText(R.string.button_start_capture);
         JNIInterface.stopCapture();
         capturing = false;
     }
+
+    private class GPUUpsampleListener implements CheckBox.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+            JNIInterface.setGPUUpsample(isChecked);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -172,10 +181,10 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         int status = JNIInterface.tangoInitialize(this);
         if (status != TANGO_SUCCESS) {
           if (status == TANGO_INVALID) {
-            Toast.makeText(this, 
+            Toast.makeText(this,
               "Tango Service version mis-match", Toast.LENGTH_SHORT).show();
           } else {
-            Toast.makeText(this, 
+            Toast.makeText(this,
               "Tango Service initialize internal error",
               Toast.LENGTH_SHORT).show();
           }
@@ -183,11 +192,14 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         setContentView(R.layout.activity_main);
 
         mDepthOverlaySeekbar = (SeekBar) findViewById(R.id.depth_overlay_alpha_seekbar);
-        mDepthOverlaySeekbar.setOnSeekBarChangeListener(new DepthOverlaySeekbarListner());
+        mDepthOverlaySeekbar.setOnSeekBarChangeListener(new DepthOverlaySeekbarListener());
         mDepthOverlaySeekbar.setVisibility(View.GONE);
-        
+
         mdebugOverlayCheckbox = (CheckBox) findViewById(R.id.debug_overlay_checkbox);
-        mdebugOverlayCheckbox.setOnCheckedChangeListener(new DebugOverlayCheckboxListner());
+        mdebugOverlayCheckbox.setOnCheckedChangeListener(new DebugOverlayCheckboxListener());
+
+        mGPUUpsampleCheckbox = (CheckBox) findViewById(R.id.gpu_upsample_checkbox);
+        mGPUUpsampleCheckbox.setOnCheckedChangeListener(new GPUUpsampleListener());
 
         mStartCaptureButton = (Button) findViewById(R.id.startCaptureButton);
         mStartCaptureButton.setOnClickListener(new Button.OnClickListener() {
@@ -238,6 +250,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
 
         // Configure OpenGL renderer
         GLSurfaceRenderer mRenderer = new GLSurfaceRenderer(this);
+        mGLView.setEGLContextClientVersion(2);
         mGLView.setRenderer(mRenderer);
     }
 

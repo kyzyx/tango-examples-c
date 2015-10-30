@@ -53,4 +53,6 @@ public class JNIInterface {
     public static native void setAdf(String adf);
 
     public static native void setDepthAlphaValue(float alpha);
+
+    public static native void setGPUUpsample(boolean on);
 }

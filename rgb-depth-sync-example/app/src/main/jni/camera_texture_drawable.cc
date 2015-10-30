@@ -76,8 +76,6 @@ CameraTextureDrawable::CameraTextureDrawable() {
 }
 
 CameraTextureDrawable::~CameraTextureDrawable() {
-  glDeleteTextures(1, &color_texture_id_);
-  glDeleteTextures(1, &depth_texture_id_);
   glDeleteShader(shader_program_);
 }
 
@@ -93,12 +91,10 @@ void CameraTextureDrawable::RenderImage() {
   // not getting any handle from shader neither binding any texture here.
   // Once this is fix, we will need to bind the texture to the correct sampler2D
   // handle.
-  glEnable(GL_TEXTURE_2D);
   glUniform1i(color_texture_handle_, 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, color_texture_id_);
 
-  // Bind depth texture to texture unit 1.
   glUniform1i(depth_texture_handle_, 1);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, depth_texture_id_);
