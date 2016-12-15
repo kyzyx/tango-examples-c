@@ -18,7 +18,6 @@ package com.projecttango.experiments.rgbdepthsync;
 
 import android.app.Activity;
 import android.util.Log;
-import com.projecttango.examples.cpp.util.TangoInitializationHelper;
 
 /**
  * Interfaces between C and Java.

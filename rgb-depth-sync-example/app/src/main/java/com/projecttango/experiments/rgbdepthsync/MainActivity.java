@@ -272,6 +272,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
                 mGLView.onResume();
             }
         }
+        //TangoInitializationHelper.bindTangoService(this, mTangoServiceConnection);
     }
 
     @Override
