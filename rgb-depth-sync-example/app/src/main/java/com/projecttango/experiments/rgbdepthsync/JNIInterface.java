@@ -17,12 +17,18 @@
 package com.projecttango.experiments.rgbdepthsync;
 
 import android.app.Activity;
+import android.util.Log;
+import com.projecttango.examples.cpp.util.TangoInitializationHelper;
 
 /**
  * Interfaces between C and Java.
  */
 public class JNIInterface {
     static {
+        if (TangoInitializationHelper.loadTangoSharedLibrary() ==
+                TangoInitializationHelper.ARCH_ERROR) {
+            Log.e("TangoJNINative", "ERROR! Unable to load libtango_client_api.so!");
+                }
       System.loadLibrary("rgb_depth_sync_example");
     }
 
