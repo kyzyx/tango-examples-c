@@ -129,12 +129,12 @@ SynchronizationApplication::SynchronizationApplication() :
   // We'll store the fixed transform between the opengl frame convention.
   // (Y-up, X-right) and tango frame convention. (Z-up, X-right).
   OW_T_SS_ = tango_gl::conversions::opengl_world_T_tango_world();
-  rendercallback_yuv_buffer_.resize(1280*720*3/2);
-  outputcallback_yuv_buffer_.resize(1280*720*3/2);
-  render_yuv_buffer_.resize(1280*720*3/2);
-  output_yuv_buffer_.resize(1280*720*3/2);
-  rendershared_yuv_buffer_.resize(1280*720*3/2);
-  outputshared_yuv_buffer_.resize(1280*720*3/2);
+  rendercallback_yuv_buffer_.resize(1920*1080*3/2);
+  outputcallback_yuv_buffer_.resize(1920*1080*3/2);
+  render_yuv_buffer_.resize(1920*1080*3/2);
+  output_yuv_buffer_.resize(1920*1080*3/2);
+  rendershared_yuv_buffer_.resize(1920*1080*3/2);
+  outputshared_yuv_buffer_.resize(1920*1080*3/2);
   tracking = false;
   localized = false;
   tango_initialized = false;
@@ -443,8 +443,8 @@ void SynchronizationApplication::writeCurrentData() {
     std::lock_guard<std::mutex> lock(write_mutex_);
     if (!capture) return;
     // Write color data
-    int w = 1280;
-    int h = 720;
+    int w = 1920;
+    int h = 1080;
     double color_timestamp, depth_timestamp;
     {
         std::lock_guard<std::mutex> lock(outputcolor_mutex_);
@@ -513,7 +513,7 @@ void SynchronizationApplication::Render() {
         renderyuv_swap_signal = false;
     }
   }
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1280, 720, GL_LUMINANCE, GL_UNSIGNED_BYTE, render_yuv_buffer_.data());
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_LUMINANCE, GL_UNSIGNED_BYTE, render_yuv_buffer_.data());
   glBindTexture(GL_TEXTURE_2D, 0);
 
 
