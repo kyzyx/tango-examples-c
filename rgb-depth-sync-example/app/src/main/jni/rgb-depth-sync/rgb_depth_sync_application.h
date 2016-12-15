@@ -143,6 +143,8 @@ class SynchronizationApplication {
   float screen_height_;
 
   bool gpu_upsample_;
+  bool gl_initialized;
+  bool tango_initialized;
 };
 }  // namespace rgb_depth_sync
 

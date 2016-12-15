@@ -17,6 +17,7 @@
 package com.projecttango.experiments.rgbdepthsync;
 
 import android.app.Activity;
+import android.os.IBinder;
 import android.util.Log;
 
 /**
@@ -31,7 +32,7 @@ public class JNIInterface {
       System.loadLibrary("rgb_depth_sync_example");
     }
 
-    public static native int tangoInitialize(Activity activity);
+    public static native int tangoInitialize(IBinder binder);
 
     public static native int tangoSetupConfig();
 

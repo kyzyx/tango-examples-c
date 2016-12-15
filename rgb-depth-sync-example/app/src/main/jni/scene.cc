@@ -81,6 +81,9 @@ void Scene::SetupViewPort(int w, int h) {
   if (h == 0 || w == 0) {
     LOGE("The Scene received an invalid height of 0 in SetupViewPort.");
   }
+  screen_width_ = w;
+  screen_height_ = h;
+  glViewport(0, 0, w, h);
 }
 
 // We'll render the scene from a pose.

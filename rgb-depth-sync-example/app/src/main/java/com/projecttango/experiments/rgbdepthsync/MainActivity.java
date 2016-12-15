@@ -20,8 +20,10 @@ import android.app.Activity;
 import android.app.DialogFragment;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.ComponentName;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.database.Cursor;
 import android.graphics.Point;
 import android.media.MediaScannerConnection;
@@ -29,6 +31,7 @@ import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
@@ -69,6 +72,43 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     private CheckBox mGPUUpsampleCheckbox;
 
     private boolean mIsConnectedService = false;
+  // Tango Service connection.
+  ServiceConnection mTangoServiceConnection = new ServiceConnection() {
+      public void onServiceConnected(ComponentName name, IBinder service) {
+        JNIInterface.tangoInitialize(service);
+          int ret = JNIInterface.tangoSetupConfig();
+          if (ret != TANGO_SUCCESS) {
+              Log.e(TAG, "Failed to set config with code: "  + ret);
+              finish();
+          }
+
+          ret = JNIInterface.tangoConnectCallbacks();
+          if (ret != TANGO_SUCCESS) {
+              Log.e(TAG, "Failed to set connect cbs with code: "  + ret);
+              finish();
+          }
+
+          ret = JNIInterface.tangoConnect();
+          if (ret != TANGO_SUCCESS) {
+              Log.e(TAG, "Failed to set connect service with code: "  + ret);
+              finish();
+          }
+
+          ret = JNIInterface.tangoSetIntrinsicsAndExtrinsics();
+          if (ret != TANGO_SUCCESS) {
+              Log.e(TAG, "Failed to extrinsics and intrinsics code: "  + ret);
+              finish();
+          }
+
+          mIsConnectedService = true;
+        //setAndroidOrientation();
+      }
+
+      public void onServiceDisconnected(ComponentName name) {
+        // Handle this if you need to gracefully shutdown/retry
+        // in the event that Tango itself crashes/gets upgraded while running.
+      }
+    };
 
     private static final String TAG = "RGBDepthSync";
 
@@ -178,17 +218,6 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        int status = JNIInterface.tangoInitialize(this);
-        if (status != TANGO_SUCCESS) {
-          if (status == TANGO_INVALID) {
-            Toast.makeText(this,
-              "Tango Service version mis-match", Toast.LENGTH_SHORT).show();
-          } else {
-            Toast.makeText(this,
-              "Tango Service initialize internal error",
-              Toast.LENGTH_SHORT).show();
-          }
-        }
         setContentView(R.layout.activity_main);
 
         mDepthOverlaySeekbar = (SeekBar) findViewById(R.id.depth_overlay_alpha_seekbar);
@@ -249,8 +278,8 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
 
         // Configure OpenGL renderer
-        GLSurfaceRenderer mRenderer = new GLSurfaceRenderer(this);
         mGLView.setEGLContextClientVersion(2);
+        GLSurfaceRenderer mRenderer = new GLSurfaceRenderer(this);
         mGLView.setRenderer(mRenderer);
     }
 
@@ -270,6 +299,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
                 getPermission(AREA_LEARNING_PERMISSION);
             } else {
                 mGLView.onResume();
+                TangoInitializationHelper.bindTangoService(this, mTangoServiceConnection);
             }
         }
         //TangoInitializationHelper.bindTangoService(this, mTangoServiceConnection);
@@ -281,9 +311,8 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         mGLView.onPause();
         if (mIsConnectedService) {
             if (capturing) stopCapture();
-            JNIInterface.tangoDisconnect();
+            unbindService(mTangoServiceConnection);
         }
-        JNIInterface.freeGLContent();
         if (savefilename != null && savefilename.length() > 0) {
             String[] filenames = new String[]{
                     (new File(Environment.getExternalStorageDirectory(), savefilename)).getAbsolutePath(),
@@ -304,31 +333,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     public void surfaceCreated() {
         JNIInterface.initializeGLContent();
 
-        int ret = JNIInterface.tangoSetupConfig();
-        if (ret != TANGO_SUCCESS) {
-            Log.e(TAG, "Failed to set config with code: "  + ret);
-            finish();
-        }
 
-        ret = JNIInterface.tangoConnectCallbacks();
-        if (ret != TANGO_SUCCESS) {
-            Log.e(TAG, "Failed to set connect cbs with code: "  + ret);
-            finish();
-        }
-
-        ret = JNIInterface.tangoConnect();
-        if (ret != TANGO_SUCCESS) {
-            Log.e(TAG, "Failed to set connect service with code: "  + ret);
-            finish();
-        }
-
-        ret = JNIInterface.tangoSetIntrinsicsAndExtrinsics();
-        if (ret != TANGO_SUCCESS) {
-            Log.e(TAG, "Failed to extrinsics and intrinsics code: "  + ret);
-            finish();
-        }
-
-        mIsConnectedService = true;
     }
 
     @Override

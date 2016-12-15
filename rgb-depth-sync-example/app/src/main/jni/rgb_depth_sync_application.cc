@@ -137,13 +137,15 @@ SynchronizationApplication::SynchronizationApplication() :
   outputshared_yuv_buffer_.resize(1280*720*3/2);
   tracking = false;
   localized = false;
+  tango_initialized = false;
+  gl_initialized = false;
 }
 
 SynchronizationApplication::~SynchronizationApplication() {}
 
 int SynchronizationApplication::TangoInitialize(JNIEnv* env,
-                                                jobject caller_activity) {
-  return TangoService_initialize(env, caller_activity);
+                                                jobject binder) {
+  TangoErrorType ret = TangoService_setBinder(env, binder);
 }
 
 int SynchronizationApplication::TangoSetupConfig() {
@@ -203,6 +205,8 @@ int SynchronizationApplication::TangoConnect() {
   TangoErrorType ret = TangoService_connect(this, tango_config_);
   if (ret != TANGO_SUCCESS) {
     LOGE("SynchronizationApplication: Failed to connect to the Tango service.");
+  } else {
+      tango_initialized = true;
   }
   return ret;
 }
@@ -225,13 +229,6 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
   float image_height = static_cast<float>(color_camera_intrinsics.height);
   float image_plane_ratio = image_height / image_width;
   float screen_ratio = screen_height_ / screen_width_;
-
-  if (image_plane_ratio < screen_ratio) {
-    glViewport(0, 0, screen_width_, screen_width_ * image_plane_ratio);
-  } else {
-    glViewport((screen_width_ - screen_height_ / image_plane_ratio) / 2, 0,
-               screen_height_ / image_plane_ratio, screen_height_);
-  }
 
   TangoPoseData pose_imu_T_device;
   TangoPoseData pose_imu_T_color;
@@ -296,6 +293,8 @@ void SynchronizationApplication::InitializeGLContent() {
   depth_image_ = new rgb_depth_sync::DepthImage();
   color_image_ = new rgb_depth_sync::ColorImage();
   main_scene_ = new rgb_depth_sync::Scene(color_image_, depth_image_);
+  gl_initialized = true;
+
 }
 
 void SynchronizationApplication::SetViewPort(int width, int height) {
@@ -487,6 +486,7 @@ void SynchronizationApplication::writeCurrentData() {
 #pragma endregion
 
 void SynchronizationApplication::Render() {
+    if (!tango_initialized || !gl_initialized) return;
 
   double color_timestamp = 0.0;
   double depth_timestamp = 0.0;
