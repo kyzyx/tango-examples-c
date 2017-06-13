@@ -155,6 +155,12 @@ int SynchronizationApplication::TangoSetupConfig() {
   }
 
   TangoErrorType ret =
+      TangoConfig_setBool(tango_config_, "config_enable_color_camera", true);
+  if (ret != TANGO_SUCCESS) {
+    LOGE("Failed to enable color camera.");
+    return ret;
+  }
+  ret =
       TangoConfig_setBool(tango_config_, "config_enable_depth", true);
   if (ret != TANGO_SUCCESS) {
     LOGE("Failed to enable depth.");
@@ -344,13 +350,20 @@ std::string SynchronizationApplication::getAdfList() {
 #pragma region Data Capture methods
 void SynchronizationApplication::startCapture(std::string filename) {
     std::lock_guard<std::mutex> lock(write_mutex_);
-    std::string filepath = "/sdcard/" + filename;
-    datadump = fopen(filepath.c_str(), "w");
-    std::string depthfilepath = filepath + ".pts";
+    datadump = fopen(filename.c_str(), "w");
+    if (!datadump) {
+        LOGE("Failed to open data file");
+    }
+    std::string depthfilepath = filename + ".pts";
     depthdatadump = fopen(depthfilepath.c_str(), "w");
-    std::string posefilepath = "/sdcard/" + filename + ".xforms";
+    if (!depthdatadump) {
+        LOGE("Failed to open data file");
+    }
+    std::string posefilepath = filename + ".xforms";
     imageposes = fopen(posefilepath.c_str(), "w");
-
+    if (!imageposes) {
+        LOGE("Failed to open data file");
+    }
 
     int w = color_camera_intrinsics.width;
     int h = color_camera_intrinsics.height;

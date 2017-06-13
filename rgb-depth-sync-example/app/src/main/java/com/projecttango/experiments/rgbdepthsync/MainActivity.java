@@ -152,7 +152,9 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
     public void onPositiveClick(String s) {
         mStartCaptureButton.setText(R.string.button_stop_capture);
         savefilename = s;
-        JNIInterface.startCapture(s);
+        String path = (new File(getExternalFilesDir(null), savefilename)).getAbsolutePath();
+        Log.w(TAG, path);
+        JNIInterface.startCapture(path);
         capturing = true;
         mWriterThread = new Thread(new Runnable() {
             public void run() {
@@ -299,7 +301,6 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
                 getPermission(AREA_LEARNING_PERMISSION);
             } else {
                 mGLView.onResume();
-                TangoInitializationHelper.bindTangoService(this, mTangoServiceConnection);
             }
         }
         //TangoInitializationHelper.bindTangoService(this, mTangoServiceConnection);
@@ -315,9 +316,9 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
         }
         if (savefilename != null && savefilename.length() > 0) {
             String[] filenames = new String[]{
-                    (new File(Environment.getExternalStorageDirectory(), savefilename)).getAbsolutePath(),
-                    (new File(Environment.getExternalStorageDirectory(), savefilename + ".xforms")).getAbsolutePath(),
-                    (new File(Environment.getExternalStorageDirectory(), savefilename + ".pts")).getAbsolutePath()
+                    (new File(getExternalFilesDir(null), savefilename)).getAbsolutePath(),
+                    (new File(getExternalFilesDir(null), savefilename + ".xforms")).getAbsolutePath(),
+                    (new File(getExternalFilesDir(null), savefilename + ".pts")).getAbsolutePath()
             };
             sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse(filenames[0])));
             sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse(filenames[1])));
@@ -332,8 +333,7 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
 
     public void surfaceCreated() {
         JNIInterface.initializeGLContent();
-
-
+        TangoInitializationHelper.bindTangoService(this, mTangoServiceConnection);
     }
 
     @Override
