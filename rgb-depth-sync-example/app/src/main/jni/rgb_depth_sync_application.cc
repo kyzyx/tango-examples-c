@@ -146,6 +146,12 @@ SynchronizationApplication::~SynchronizationApplication() {}
 int SynchronizationApplication::TangoInitialize(JNIEnv* env,
                                                 jobject binder) {
   TangoErrorType ret = TangoService_setBinder(env, binder);
+  if (ret == TANGO_SUCCESS) {
+      LOGE("Succeeded in binding to tango service");
+  } else {
+      LOGE("Failed to bind to tango service");
+  }
+  return ret;
 }
 
 int SynchronizationApplication::TangoSetupConfig() {
@@ -185,6 +191,7 @@ int SynchronizationApplication::TangoSetupConfig() {
           LOGE("Failed to load area description file %s.", uuid.c_str());
           return ret;
       }
+      LOGE("loaded adf");
   }
   return ret;
 }
@@ -220,6 +227,7 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
   // Get the intrinsics for the color camera and pass them on to the depth
   // image. We need these to know how to project the point cloud into the color
   // camera frame.
+    LOGE("rgbdepthsync: starting intrinsics");
   TangoErrorType ret = TangoService_getCameraIntrinsics(
       TANGO_CAMERA_COLOR, &color_camera_intrinsics);
   if (ret != TANGO_SUCCESS) {
@@ -228,8 +236,11 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
         "camera.");
     return ret;
   }
+    LOGE("rgbdepthsync: got intrinsics");
   depth_image_->SetCameraIntrinsics(color_camera_intrinsics);
+    LOGE("rgbdepthsync: set d intrinsics");
   main_scene_->SetCameraIntrinsics(color_camera_intrinsics);
+    LOGE("rgbdepthsync: set m intrinsics");
 
   float image_width = static_cast<float>(color_camera_intrinsics.width);
   float image_height = static_cast<float>(color_camera_intrinsics.height);
@@ -282,6 +293,7 @@ int SynchronizationApplication::TangoSetIntrinsicsAndExtrinsics() {
 
   device_T_color_ = glm::inverse(imu_T_device) * imu_T_color;
   device_T_depth_ = glm::inverse(imu_T_device) * imu_T_depth;
+    LOGE("rgbdepthsync: done intrinsics and extrinsics");
 
   return ret;
 }

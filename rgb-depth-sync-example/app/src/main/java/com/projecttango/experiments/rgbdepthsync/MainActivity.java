@@ -75,18 +75,21 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
   // Tango Service connection.
   ServiceConnection mTangoServiceConnection = new ServiceConnection() {
       public void onServiceConnected(ComponentName name, IBinder service) {
+          Log.w(TAG, "Called onServiceConnected");
         JNIInterface.tangoInitialize(service);
           int ret = JNIInterface.tangoSetupConfig();
           if (ret != TANGO_SUCCESS) {
               Log.e(TAG, "Failed to set config with code: "  + ret);
               finish();
           }
+          Log.w(TAG, "Done config setup");
 
           ret = JNIInterface.tangoConnectCallbacks();
           if (ret != TANGO_SUCCESS) {
               Log.e(TAG, "Failed to set connect cbs with code: "  + ret);
               finish();
           }
+          Log.w(TAG, "Done callbacks");
 
           ret = JNIInterface.tangoConnect();
           if (ret != TANGO_SUCCESS) {
@@ -94,13 +97,16 @@ public class MainActivity extends Activity implements FilenameSelectDialog.Filen
               finish();
           }
 
+          Log.w(TAG, "Done connect");
           ret = JNIInterface.tangoSetIntrinsicsAndExtrinsics();
           if (ret != TANGO_SUCCESS) {
               Log.e(TAG, "Failed to extrinsics and intrinsics code: "  + ret);
               finish();
           }
+          Log.w(TAG, "Done intrinsics");
 
           mIsConnectedService = true;
+          Log.w(TAG, "Successful init");
         //setAndroidOrientation();
       }
 
